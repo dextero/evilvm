@@ -416,27 +416,27 @@ class CPU:
             cpu._set_flags(cpu.registers[Register(reg_a)] - cpu.registers[Register(reg_b)])
 
         @Operation(arg_def='a')
-        def je(cpu: 'CPU', addr: int):
+        def je_rel(cpu: 'CPU', addr: int):
             if cpu.registers.F & Flag.Zero:
                 cpu.registers.IP = addr
 
         @Operation(arg_def='a')
-        def ja(cpu: 'CPU', addr: int):
+        def ja_rel(cpu: 'CPU', addr: int):
             if cpu.registers.F & Flag.Greater:
                 cpu.registers.IP = addr
 
         @Operation(arg_def='a')
-        def jae(cpu: 'CPU', addr: int):
+        def jae_rel(cpu: 'CPU', addr: int):
             if cpu.registers.F & (Flag.Equal | Flag.Greater):
                 cpu.registers.IP = addr
 
         @Operation(arg_def='a')
-        def jb(cpu: 'CPU', addr: int):
+        def jb_rel(cpu: 'CPU', addr: int):
             if not (cpu.registers.F & (Flag.Equal | Flag.Greater)):
                 cpu.registers.IP = addr
 
         @Operation(arg_def='a')
-        def jbe(cpu: 'CPU', addr: int):
+        def jbe_rel(cpu: 'CPU', addr: int):
             if not (cpu.registers.F & Flag.Greater):
                 cpu.registers.IP = addr
 
