@@ -284,6 +284,17 @@ class CPU:
                                   size_bytes=Packer.calcsize('w'),
                                   endianness=Endianness.Little) # TODO
 
+        @Operation(arg_def='a')
+        def jmp_rel(cpu: 'CPU', delta: int):
+            msb = (1 << (Packer.calcsize('a') * cpu.ram.char_bit - 1))
+            is_negative = delta & msb
+            abs_val = delta & ~msb
+
+            if is_negative:
+                cpu.registers.IP -= abs_val
+            else:
+                cpu.registers.IP += abs_val
+
     OPERATIONS = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
 
     def __init__(self):
@@ -322,6 +333,7 @@ program = Memory(char_bit=9, value=[
     3, 123, 123, 123, 123, 123, 123, 123,
     4, 0, 0, 0, 0, 0,
     5, 0, 0, 0, 0, 0,
+    6, 0x100, 0, 0, 0, 6,                   # jmp $
 ])
 try:
     cpu.execute(program)
