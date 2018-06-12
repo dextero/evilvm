@@ -76,6 +76,7 @@ class Register(enum.Enum):
     IP = enum.auto() # instruction pointer
     SP = enum.auto() # stack pointer
     A = enum.auto()  # accumulator
+    C = enum.auto()  # counter
     F = enum.auto()  # flags
 
     @classmethod
