@@ -3,7 +3,6 @@
 
 import enum
 import typing
-import struct
 
 
 def group(seq, n):
@@ -15,49 +14,49 @@ class Endianness(enum.Enum):
     Big = enum.auto()
     PDP = enum.auto()
 
-    def encode(self,
-               value: int,
-               char_bit: int,
-               num_bytes: int) -> typing.List[int]:
-        if self == self.PDP and num_bytes % 2 != 0:
-            raise ValueError('unable to encode PDP endian value on odd number of bytes')
-        assert value < 2**(char_bit * num_bytes)
+def bytes_from_value(endianness: Endianness,
+                     value: int,
+                     char_bit: int,
+                     num_bytes: int) -> typing.List[int]:
+    if endianness == Endianness.PDP and num_bytes % 2 != 0:
+        raise ValueError('unable to encode PDP endian value on odd number of bytes')
+    assert value < 2**(char_bit * num_bytes)
 
-        result = [0] * num_bytes
-        idx = 0
-        while value > 0:
-            result[idx] = result % 2**char_bit
-            result /= 2**char_bit
-            idx += 1
+    result = [0] * num_bytes
+    idx = 0
+    while value > 0:
+        result[idx] = result % 2**char_bit
+        result /= 2**char_bit
+        idx += 1
 
-        if self == self.Little:
-            return result
-        elif self == self.Big:
-            return list(reversed(result))
-        elif self == self.PDP:
-            return list(reduce(list.__add__, (reversed(g) for g in group(result, 2))))
+    if endianness == Endianness.Little:
+        return result
+    elif endianness == Endianness.Big:
+        return list(reversed(result))
+    elif endianness == Endianness.PDP:
+        return list(reduce(list.__add__, (reversed(g) for g in group(result, 2))))
 
 
-    def decode(self,
-               val_bytes: typing.List[int],
-               char_bit: int) -> int:
-        if self == self.PDP and len(val_bytes) % 2 != 0:
-            raise ValueError('unable to decode PDP endian value from odd number of bytes')
+def value_from_bytes(endianness: Endianness,
+                     val_bytes: typing.List[int],
+                     char_bit: int) -> int:
+    if endianness == Endianness.PDP and len(val_bytes) % 2 != 0:
+        raise ValueError('unable to decode PDP endian value from odd number of bytes')
 
-        if self == self.Little:
-            val_le = val_bytes
-        elif self == self.Big:
-            val_le = reversed(val_bytes)
-        elif self == self.PDP:
-            val_le = reduce(list.__add__, (reversed(g) for g in group(val_bytes, 2)))
+    if endianness == Endianness.Little:
+        val_le = val_bytes
+    elif endianness == Endianness.Big:
+        val_le = list(reversed(val_bytes))
+    elif endianness == Endianness.PDP:
+        val_le = reduce(list.__add__, (reversed(g) for g in group(val_bytes, 2)))
 
-        val = 0
-        for b in reversed(val_le):
-            assert b < 2**char_bit
-            val_le *= 2**char_bit
-            val_le += b
+    val = 0
+    for b in reversed(val_le):
+        assert b < 2**char_bit
+        val_le *= 2**char_bit
+        val += b
 
-        return val
+    return val
 
 
 class Register(enum.Enum):
@@ -69,6 +68,10 @@ class Register(enum.Enum):
     def all(cls):
         return cls._member_map_.values()
 
+    @classmethod
+    def by_name(cls, name: str) -> 'Register':
+        return cls._member_map_[name]
+
 
 class RegisterSet:
     def __init__(self):
@@ -78,11 +81,29 @@ class RegisterSet:
         self._registers = {r: 0 for r in Register.all()}
 
     def __getitem__(self, reg: Register) -> int:
-        return self._registers.get(reg)
+        try:
+            return self._registers.get(reg)
+        except KeyError as e:
+            raise KeyError('unknown register: %s' % reg) from e
 
     def __setitem__(self, reg: Register, val: int):
         assert reg in self._registers
-        self._registers[reg] = val
+        try:
+            self._registers[reg] = val
+        except KeyError as e:
+            raise KeyError('unknown register: %s' % reg) from e
+
+    def __getattr__(self, name: str) -> int:
+        return self.__getitem__(Register.by_name(name))
+
+    def __setattr__(self, name: str, val: int):
+        try:
+            super().__setattr__(name, val)
+        except KeyError:
+            return self.__setitem__(Register.by_name(name), val)
+
+    def __str__(self) -> str:
+        return '\n'.join('%s = %d (%x)' % (n, v, v) for n, v in self._registers.items())
 
 
 class UnalignedMemoryAccessError(Exception):
@@ -92,24 +113,34 @@ class UnalignedMemoryAccessError(Exception):
 
 class Memory:
     def __init__(self,
-                 size: int = 2**16,
+                 size: int = None,
+                 value: typing.List[int] = None,
                  char_bit: int = 8):
         self._char_bit = char_bit
-        self._memory = [0] * size
+        self._memory = ([0] * size) if size else value
 
     @property
     def char_bit(self) -> int:
         return self._char_bit
 
+    def __len__(self):
+        return len(self._memory)
+
     def __getitem__(self,
                     addr: int) -> int:
-        return self._memory[addr]
+        try:
+            return self._memory[addr]
+        except IndexError as e:
+            raise IndexError('invalid memory access at address %d' % addr) from e
 
     def __setitem__(self,
                     addr: int,
                     val: int):
         assert val < 2**self.char_bit
-        self._memory[addr] = val
+        try:
+            self._memory[addr] = val
+        except IndexError as e:
+            raise IndexError('invalid memory access at address %d' % addr) from e
 
     def get_multibyte(self,
                       addr: int,
@@ -119,8 +150,9 @@ class Memory:
         if addr % alignment != 0:
             raise UnalignedMemoryAccessError(address=addr, alignment=alignment)
 
-        return endianness.decode(val_bytes=self._memory[addr:addr+size_bytes],
-                                 char_bit=self.char_bit)
+        return value_from_bytes(endianness=endianness,
+                                val_bytes=self._memory[addr:addr+size_bytes],
+                                char_bit=self.char_bit)
 
     def set_multibyte(self,
                       addr: int,
@@ -132,23 +164,125 @@ class Memory:
             raise UnalignedMemoryAccessError(address=addr, alignment=alignment)
         assert value < 2**(size_bytes * self.char_bit)
 
-        self._memory[addr:addr+size_bytes] = endianness.encode(value=value,
-                                                               char_bit=self.char_bit,
-                                                               num_bytes=size_bytes)
+        self._memory[addr:addr+size_bytes] = bytes_from_value(endianness=endianness,
+                                                              value=value,
+                                                              char_bit=self.char_bit,
+                                                              num_bytes=size_bytes)
+
+    def __str__(self):
+        return '\n'.join(' '.join(str(b) for b in g) for g in group(self._memory, 8))
 
 
-class Operation(typing.NamedTuple):
-    name: str
-    opcode: int
-    args: str
-    run: typing.Callable[[RegisterSet, Memory], None]
+class Packer:
+    class Packable(typing.NamedTuple):
+        name: str
+        size_bytes: int
+        decode: typing.Callable[[Endianness, typing.List[int]], int] = value_from_bytes
+
+    _values = {p.name: p for p in [
+        Packable(name='b', size_bytes=1),
+        Packable(name='h', size_bytes=3),
+        Packable(name='a', size_bytes=5),
+        Packable(name='w', size_bytes=7),
+    ]}
+
+    @classmethod
+    def calcsize(cls, fmt: str):
+        return sum(cls._values[c].size_bytes for c in fmt)
+
+    @classmethod
+    def unpack(cls,
+               endianness: Endianness,
+               char_bit: int,
+               fmt: str,
+               data: typing.List[int]):
+        result = []
+        for c in fmt:
+            try:
+                packable = cls._values[c]
+            except KeyError as e:
+                raise KeyError('unknown data size specified: %s' % c) from e
+
+            result.append(packable.decode(endianness=endianness,
+                                          val_bytes=data[:packable.size_bytes],
+                                          char_bit=char_bit))
+            data = data[packable.size_bytes:]
+        assert len(data) == 0
+        return result
+
+
+class Operation:
+    _opcode_counter = 0
+
+    def __init__(self, arg_def: str):
+        self.arg_def = arg_def
+
+        self.opcode = Operation._opcode_counter
+        Operation._opcode_counter += 1
+
+        self.mnemonic = None
+        self.operation = None
 
     @property
-    def args_size(self):
-        return struct.calcsize(self.args)
+    def args_size(self) -> int:
+        return Packer.calcsize(self.arg_def)
+
+    def decode_args(self,
+                    endianness: Endianness,
+                    char_bit: int,
+                    memory: typing.List[int]):
+        return Packer.unpack(endianness, char_bit, self.arg_def, memory)
+
+    def run(self, cpu: 'CPU', *args, **kwargs):
+        return self.operation(cpu, *args, **kwargs)
+
+    def __call__(self, wrapped: typing.Callable):
+        self.operation = wrapped
+        self.mnemonic = wrapped.__name__.replace('_', '.')
+        return self
 
 
 class CPU:
+    class Operations:
+        @Operation(arg_def='b')
+        def movb_i2a(cpu: 'CPU', immb: int):
+            cpu.registers.A = immb
+
+        @Operation(arg_def='a')
+        def movb_m2a(cpu: 'CPU', addr: int):
+            cpu.registers.A = cpu.ram[addr]
+
+        @Operation(arg_def='a')
+        def movb_a2m(cpu: 'CPU', addr: int):
+            cpu.ram[addr] = cpu.registers.A
+
+    OPERATIONS = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
+
     def __init__(self):
         self.registers = RegisterSet()
-        self.memory = Memory(char_bit=9)
+        self.ram = Memory(size=16, char_bit=9)
+
+    def execute(self, program: Memory):
+        idx = 0
+
+        while idx < len(program):
+            op = self.OPERATIONS[program[idx]]
+
+            idx += 1
+            args = op.decode_args(endianness=(Endianness.Little if op.opcode % 2 else Endianness.Big),
+                                  char_bit=program.char_bit,
+                                  memory=program[idx:idx+op.args_size])
+            idx += op.args_size
+
+            op.run(self, *args)
+
+    def __str__(self):
+        return '%s\n%s' % (self.registers, self.ram)
+
+
+cpu = CPU()
+program = Memory(char_bit=9, value=[
+    0, 256
+])
+cpu.execute(program)
+print(cpu)
