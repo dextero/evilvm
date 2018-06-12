@@ -226,7 +226,7 @@ class Packer:
 class Operation:
     _opcode_counter = 0
 
-    def __init__(self, arg_def: str):
+    def __init__(self, arg_def: str = ''):
         self.arg_def = arg_def
 
         self.opcode = Operation._opcode_counter
@@ -252,6 +252,12 @@ class Operation:
         self.operation = wrapped
         self.mnemonic = wrapped.__name__.replace('_', '.')
         return self
+
+def addr_to_relative(mem: Memory, addr: int):
+    msb = (1 << (Packer.calcsize('a') * mem.char_bit - 1))
+    is_negative = addr & msb
+    abs_val = addr & ~msb
+    return -abs_val if is_negative else abs_val
 
 
 class CPU:
@@ -284,28 +290,47 @@ class CPU:
                                   size_bytes=Packer.calcsize('w'))
 
         @Operation(arg_def='a')
-        def jmp_rel(cpu: 'CPU', delta: int):
-            msb = (1 << (Packer.calcsize('a') * cpu.ram.char_bit - 1))
-            is_negative = delta & msb
-            abs_val = delta & ~msb
+        def jmp_rel(cpu: 'CPU', addr: int):
+            cpu.registers.IP += addr_to_relative(cpu.ram, addr)
 
-            if is_negative:
-                cpu.registers.IP -= abs_val
-            else:
-                cpu.registers.IP += abs_val
-
-        @Operation(arg_def='')
+        @Operation()
         def out(cpu: 'CPU'):
             sys.stdout.write(chr(cpu.registers.A))
+
+        @Operation(arg_def='a')
+        def call_rel(cpu: 'CPU', addr: int):
+            addr_size = Packer.calcsize('a')
+            cpu.registers.SP -= addr_size
+            cpu.stack.set_multibyte(cpu.registers.SP,
+                                    cpu.registers.IP,
+                                    size_bytes=addr_size)
+            cpu.registers.IP += addr_to_relative(cpu.program, addr)
+
+        @Operation()
+        def ret(cpu: 'CPU'):
+            addr_size = Packer.calcsize('a')
+            cpu.registers.IP = cpu.stack.get_multibyte(cpu.registers.SP,
+                                                       size_bytes=addr_size)
 
     OPERATIONS = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
 
     def __init__(self):
         self.registers = RegisterSet()
-        self.ram = Memory(size=16, char_bit=9, alignment=7)
 
-    def execute(self, program: Memory):
+        self.flash = None
+        self.ram = None
+        self.stack = None
+
+    def execute(self,
+                program: Memory,
+                ram: Memory,
+                stack: Memory):
         self.registers.IP = 0
+        self.registers.SP = len(stack)
+
+        self.program = program
+        self.ram = ram
+        self.stack = stack
 
         while self.registers.IP < len(program):
             idx = self.registers.IP
@@ -328,8 +353,9 @@ class CPU:
         return '%s\n%s' % (self.registers, self.ram)
 
 
-cpu = CPU()
-program = Memory(char_bit=9, value=[
+data = Memory(char_bit=9, alignment=7, value=b'Hello World!', size=128)
+stack = Memory(char_bit=9, alignment=7, size=128)
+program = Memory(char_bit=9, alignment=1, value=[
     0, 256,
     1, 0, 0, 0, 0, 0,
     2, 0, 0, 0, 0, 0,
@@ -341,7 +367,9 @@ program = Memory(char_bit=9, value=[
     7,                                      #   out
     6, 0x100, 0, 0, 0, 7,                   #   jmp loop
 ])
+
 try:
-    cpu.execute(program)
+    cpu = CPU()
+    cpu.execute(program=program, ram=data, stack=stack)
 finally:
     print(cpu)
