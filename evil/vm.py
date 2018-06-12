@@ -563,7 +563,7 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
 logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
 data = Memory(char_bit=9, alignment=7, value=b'Hello World!', size=128)
-stack = Memory(char_bit=9, alignment=7, size=128)
+stack = Memory(char_bit=9, alignment=5, size=5*32)
 program = Memory(char_bit=9, alignment=1, value=asm_compile("""
     movb.i2a 123
     movb.a2m 0
