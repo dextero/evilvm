@@ -24,12 +24,21 @@ def bytes_from_value(endianness: Endianness,
         raise ValueError('unable to encode PDP endian value on odd number of bytes')
     assert value < 2**(char_bit * num_bytes)
 
+    negative = False
+    if value < 0:
+        negative = True
+        value = -value
+
     result = [0] * num_bytes
     idx = 0
     while value > 0:
-        result[idx] = result % 2**char_bit
-        result /= 2**char_bit
+        result[idx] = value % 2**char_bit
+        value //= 2**char_bit
         idx += 1
+
+    if negative:
+        msb = (1 << (char_bit - 1))
+        result[-1] |= msb
 
     if endianness == Endianness.Little:
         return result
@@ -187,7 +196,8 @@ class Packer:
     class Packable(typing.NamedTuple):
         name: str
         size_bytes: int
-        decode: typing.Callable[[Endianness, typing.List[int]], int] = value_from_bytes
+        decode: typing.Callable[[Endianness, typing.List[int], int], int] = value_from_bytes
+        encode: typing.Callable[[Endianness, int, int, int], typing.List[int]] = bytes_from_value
 
     _values = {p.name: p for p in [
         Packable(name='b', size_bytes=1),
@@ -222,6 +232,28 @@ class Packer:
         assert len(data) == 0
         return result
 
+    @classmethod
+    def pack(cls,
+             endianness: Endianness,
+             char_bit: int,
+             fmt: str,
+             args: typing.List[int]):
+        assert len(fmt) == len(args)
+
+        result = []
+        for c, arg in zip(fmt, args):
+            try:
+                packable = cls._values[c]
+            except KeyError as e:
+                raise KeyError('unknown data size specified: %s' % c) from e
+
+            result += packable.encode(endianness=endianness,
+                                      value=arg,
+                                      char_bit=char_bit,
+                                      num_bytes=packable.size_bytes)
+
+        return result
+
 
 class Operation:
     _opcode_counter = 0
@@ -239,11 +271,19 @@ class Operation:
     def args_size(self) -> int:
         return Packer.calcsize(self.arg_def)
 
+    @property
+    def args_endianness(self) -> Endianness:
+        return Endianness.Little if self.opcode % 2 else Endianness.Big
+
     def decode_args(self,
-                    endianness: Endianness,
                     char_bit: int,
                     memory: typing.List[int]):
-        return Packer.unpack(endianness, char_bit, self.arg_def, memory)
+        return Packer.unpack(self.args_endianness, char_bit, self.arg_def, memory)
+
+    def encode_args(self,
+                    char_bit: int,
+                    args: typing.List[int]) -> typing.List[int]:
+        return Packer.pack(self.args_endianness, char_bit, self.arg_def, args)
 
     def run(self, cpu: 'CPU', *args, **kwargs):
         return self.operation(cpu, *args, **kwargs)
@@ -312,7 +352,8 @@ class CPU:
             cpu.registers.IP = cpu.stack.get_multibyte(cpu.registers.SP,
                                                        size_bytes=addr_size)
 
-    OPERATIONS = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
+    OPERATIONS_BY_OPCODE = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
+    OPERATIONS_BY_MNEMONIC = {o.mnemonic: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
 
     def __init__(self):
         self.registers = RegisterSet()
@@ -336,13 +377,12 @@ class CPU:
             idx = self.registers.IP
 
             try:
-                op = self.OPERATIONS[program[idx]]
+                op = self.OPERATIONS_BY_OPCODE[program[idx]]
             except KeyError as e:
                 raise KeyError('invalid opcode: %d' % program[idx]) from e
 
             op_bytes = program[idx:idx+1+op.args_size]
-            args = op.decode_args(endianness=(Endianness.Little if op.opcode % 2 else Endianness.Big),
-                                  char_bit=program.char_bit,
+            args = op.decode_args(char_bit=program.char_bit,
                                   memory=op_bytes[1:])
             self.registers.IP = idx + 1 + op.args_size
 
@@ -353,20 +393,48 @@ class CPU:
         return '%s\n%s' % (self.registers, self.ram)
 
 
+def asm_compile(text: str, char_bit: int) -> typing.List[int]:
+    def to_int(text):
+        if text[0] == "'" and text[-1] == "'":
+            return ord(text[1:-1])
+        else:
+            return int(text, 0)
+
+    bytecode = []
+
+    for line in text.strip().split('\n'):
+        line = line.strip()
+
+        if ' ' in line:
+            mnemonic, argline = line.split(' ', maxsplit=1)
+        else:
+            mnemonic = line
+            argline = ''
+
+        try:
+            op = CPU.OPERATIONS_BY_MNEMONIC[mnemonic]
+        except KeyError as e:
+            raise KeyError('invalid opcode: %s' % mnemonic) from e
+
+        args = [to_int(s.strip(',')) for s in argline.split()] # TODO: UGLYYY
+
+        bytecode += [op.opcode] + op.encode_args(char_bit=char_bit, args=args)
+
+    return bytecode
+
 data = Memory(char_bit=9, alignment=7, value=b'Hello World!', size=128)
 stack = Memory(char_bit=9, alignment=7, size=128)
-program = Memory(char_bit=9, alignment=1, value=[
-    0, 256,
-    1, 0, 0, 0, 0, 0,
-    2, 0, 0, 0, 0, 0,
-    3, 123, 123, 123, 123, 123, 123, 123,
-    4, 0, 0, 0, 0, 0,
-    5, 0, 0, 0, 0, 0,
-    0, ord('A'),                            #   movb.i2a 'A'
-                                            # .loop:
-    7,                                      #   out
-    6, 0x100, 0, 0, 0, 7,                   #   jmp loop
-])
+program = Memory(char_bit=9, alignment=1, value=asm_compile("""
+    movb.i2a 123
+    movb.a2m 0
+    movb.m2a 0
+    movw.i2a 1111111111111111
+    movw.a2m 7
+    movw.m2a 7
+    movb.i2a 'A'
+    out
+    jmp.rel -7
+""", char_bit=9))
 
 try:
     cpu = CPU()
