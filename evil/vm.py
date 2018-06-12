@@ -98,9 +98,13 @@ class RegisterSet:
 
     def __setattr__(self, name: str, val: int):
         try:
-            super().__setattr__(name, val)
-        except KeyError:
             return self.__setitem__(Register.by_name(name), val)
+        except KeyError:
+            try:
+                return super().__setattr__(name, val)
+            except KeyError:
+                pass
+            raise
 
     def __str__(self) -> str:
         return '\n'.join('%s = %d (%x)' % (n, v, v) for n, v in self._registers.items())
@@ -274,6 +278,7 @@ class CPU:
                                   memory=program[idx:idx+op.args_size])
             idx += op.args_size
 
+            print('%8s %s' % (op.mnemonic, ', '.join(str(x) for x in args)))
             op.run(self, *args)
 
     def __str__(self):
