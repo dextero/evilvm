@@ -355,12 +355,14 @@ class CPU:
         @Operation(arg_def='rr')
         def ldb_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
             cpu.registers[Register(dst_reg)] = cpu.ram[cpu.registers[Register(addr_reg)]]
+            cpu._set_flags(cpu.registers[Register(dst_reg)])
 
         @Operation(arg_def='rr')
         def ldw_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
             cpu.registers[Register(reg)] = \
                     cpu.ram.get_multibyte(cpu.registers[Register(addr_reg)],
                                           size_bytes=Packer.calcsize('w'))
+            cpu._set_flags(cpu.registers[Register(dst_reg)])
 
         @Operation(arg_def='a')
         def jmp_rel(cpu: 'CPU', addr: int):
