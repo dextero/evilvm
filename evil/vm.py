@@ -4,6 +4,7 @@
 import enum
 import typing
 import logging
+import sys
 
 
 def group(seq, n):
@@ -293,6 +294,10 @@ class CPU:
             else:
                 cpu.registers.IP += abs_val
 
+        @Operation(arg_def='')
+        def out(cpu: 'CPU'):
+            sys.stdout.write(chr(cpu.registers.A))
+
     OPERATIONS = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
 
     def __init__(self):
@@ -331,7 +336,10 @@ program = Memory(char_bit=9, value=[
     3, 123, 123, 123, 123, 123, 123, 123,
     4, 0, 0, 0, 0, 0,
     5, 0, 0, 0, 0, 0,
-    6, 0x100, 0, 0, 0, 6,                   # jmp $
+    0, ord('A'),                            #   movb.i2a 'A'
+                                            # .loop:
+    7,                                      #   out
+    6, 0x100, 0, 0, 0, 7,                   #   jmp loop
 ])
 try:
     cpu.execute(program)
