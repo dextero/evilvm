@@ -190,7 +190,15 @@ class Memory:
                                                               num_bytes=size_bytes)
 
     def __str__(self):
-        return '\n'.join(' '.join(str(b) for b in g) for g in group(self._memory, 8))
+        byte_str_len = len('%x' % (2**self.char_bit - 1))
+        words_per_line = 70 // ((self.alignment * (byte_str_len + 1)) + 1)
+        byte_fmt = '%%0%dx' % byte_str_len
+
+        word_groups = group(self._memory, self.alignment)
+        line_groups = group(word_groups, words_per_line)
+
+        lines = ('  '.join(' '.join((byte_fmt % b) for b in w) for w in wg) for wg in line_groups)
+        return '\n'.join('%08x  %s' % (idx * words_per_line, line) for idx, line in enumerate(lines))
 
 
 class Packer:
@@ -380,7 +388,8 @@ class CPU:
             try:
                 op = self.OPERATIONS_BY_OPCODE[program[idx]]
             except KeyError as e:
-                raise KeyError('invalid opcode: %d' % program[idx]) from e
+                raise KeyError('invalid opcode: %d (%x) at address %08x'
+                               % (program[idx], program[idx], idx)) from e
 
             op_bytes = program[idx:idx+1+op.args_size]
             args = op.decode_args(char_bit=program.char_bit,
