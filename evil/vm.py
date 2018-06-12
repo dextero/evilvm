@@ -5,6 +5,7 @@ import enum
 import typing
 import logging
 import sys
+import collections
 import os
 
 
@@ -400,35 +401,69 @@ class CPU:
             op.run(self, *args)
 
     def __str__(self):
-        return '%s\n%s' % (self.registers, self.ram)
+        return ('--- REGISTERS ---\n'
+                '%s\n'
+                '--- PROGRAM ---\n'
+                '%s\n'
+                '--- RAM ---\n'
+                '%s\n'
+                '--- STACK ---\n'
+                '%s\n' % (self.registers, self.program, self.ram, self.stack))
 
 
 def asm_compile(text: str, char_bit: int) -> typing.List[int]:
-    def to_int(text):
-        if text[0] == "'" and text[-1] == "'":
-            return ord(text[1:-1])
-        else:
-            return int(text, 0)
+    labels = {}
+    label_refs = collections.defaultdict(list)
+
+    def resolve_arg(text: str,
+                    offset: int,
+                    op: Operation):
+        try:
+            if text[0] == "'" and text[-1] == "'":
+                return ord(text[1:-1])
+            else:
+                return int(text, 0)
+        except ValueError:
+            label_refs[text].append((offset, op))
+            return 0
 
     bytecode = []
 
     for line in text.strip().split('\n'):
         line = line.strip()
 
-        if ' ' in line:
-            mnemonic, argline = line.split(' ', maxsplit=1)
+        if line.endswith(':'):
+            labels[line[:-1]] = len(bytecode)
         else:
-            mnemonic = line
-            argline = ''
+            if ' ' in line:
+                mnemonic, argline = line.split(' ', maxsplit=1)
+            else:
+                mnemonic = line
+                argline = ''
 
-        try:
-            op = CPU.OPERATIONS_BY_MNEMONIC[mnemonic]
-        except KeyError as e:
-            raise KeyError('invalid opcode: %s' % mnemonic) from e
+            try:
+                op = CPU.OPERATIONS_BY_MNEMONIC[mnemonic]
+            except KeyError as e:
+                raise KeyError('invalid opcode: %s' % mnemonic) from e
 
-        args = [to_int(s.strip(',')) for s in argline.split()] # TODO: UGLYYY
+            bytecode += [op.opcode]
+            arg_off = 0
+            args = []
+            for idx, arg in enumerate(argline.split()):
+                arg = arg.strip(',') # TODO: UGLYYY
+                args.append(resolve_arg(arg, len(bytecode) + arg_off, op))
+                arg_off += Packer.calcsize(op.arg_def[idx])
 
-        bytecode += [op.opcode] + op.encode_args(char_bit=char_bit, args=args)
+            bytecode += op.encode_args(char_bit=char_bit, args=args)
+
+    for label, refs in label_refs.items():
+        for ref, op in refs:
+            rel_addr = labels[label] - ref - Packer.calcsize(op.arg_def)
+            print('filling address @ %08x with %08x' % (ref, rel_addr))
+            bytecode[ref:ref+Packer.calcsize('a')] = Packer.pack(endianness=op.args_endianness,
+                                                                 char_bit=char_bit,
+                                                                 fmt='a',
+                                                                 args=[rel_addr])
 
     return bytecode
 
@@ -444,8 +479,9 @@ program = Memory(char_bit=9, alignment=1, value=asm_compile("""
     movw.a2m 7
     movw.m2a 7
     movb.i2a 'A'
+loop:
     out
-    jmp.rel -7
+    jmp.rel loop
 """, char_bit=9))
 
 try:
