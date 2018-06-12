@@ -148,8 +148,14 @@ class Memory:
                  char_bit: int = 8,
                  alignment: int = 1):
         self._char_bit = char_bit
-        self._memory = ([0] * size) if size else value
         self._alignment = alignment
+
+        if not size:
+            self._memory = value
+        else:
+            self._memory = ([0] * size)
+            if value:
+                self._memory[:len(value)] = value
 
     @property
     def char_bit(self) -> int:
