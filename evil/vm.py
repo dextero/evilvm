@@ -156,7 +156,7 @@ class Memory:
     def get_multibyte(self,
                       addr: int,
                       size_bytes: int,
-                      endianness: Endianness) -> int:
+                      endianness: Endianness = Endianness.Big) -> int:
         if addr % self.alignment != 0:
             raise UnalignedMemoryAccessError(address=addr, alignment=self.alignment)
 
@@ -168,7 +168,7 @@ class Memory:
                       addr: int,
                       value: int,
                       size_bytes: int,
-                      endianness: Endianness):
+                      endianness: Endianness = Endianness.Big):
         if addr % self.alignment != 0:
             raise UnalignedMemoryAccessError(address=addr, alignment=self.alignment)
         assert value < 2**(size_bytes * self.char_bit)
@@ -274,15 +274,13 @@ class CPU:
         @Operation(arg_def='a')
         def movw_m2a(cpu: 'CPU', addr: int):
             cpu.registers.A = cpu.ram.get_multibyte(addr,
-                                                    size_bytes=Packer.calcsize('w'),
-                                                    endianness=Endianness.Little) # TODO
+                                                    size_bytes=Packer.calcsize('w'))
 
         @Operation(arg_def='a')
         def movw_a2m(cpu: 'CPU', addr: int):
             cpu.ram.set_multibyte(addr,
                                   cpu.registers.A,
-                                  size_bytes=Packer.calcsize('w'),
-                                  endianness=Endianness.Little) # TODO
+                                  size_bytes=Packer.calcsize('w'))
 
         @Operation(arg_def='a')
         def jmp_rel(cpu: 'CPU', delta: int):
