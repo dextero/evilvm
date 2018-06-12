@@ -76,6 +76,7 @@ class Register(enum.Enum):
     IP = enum.auto() # instruction pointer
     SP = enum.auto() # stack pointer
     A = enum.auto()  # accumulator
+    F = enum.auto()  # flags
 
     @classmethod
     def all(cls):
@@ -84,6 +85,11 @@ class Register(enum.Enum):
     @classmethod
     def by_name(cls, name: str) -> 'Register':
         return cls._member_map_[name]
+
+
+class Flag(enum.IntFlag):
+    Zero = enum.auto()
+    Greater = enum.auto()
 
 
 class RegisterSet:
@@ -361,6 +367,61 @@ class CPU:
             addr_size = Packer.calcsize('a')
             cpu.registers.IP = cpu.stack.get_multibyte(cpu.registers.SP,
                                                        size_bytes=addr_size)
+
+        @staticmethod
+        def set_flags(cpu: 'CPU', value: int):
+            cpu.registers.F = (Flag.Zero & (value == 0)
+                               | Flag.Greater & (value > 0))
+
+        @Operation(arg_def='b')
+        def add_b(cpu: 'CPU', immb: int):
+            cpu.registers.A += immb
+            set_flags(cpu, cpu.registers.A)
+
+        @Operation(arg_def='w')
+        def add_w(cpu: 'CPU', immw: int):
+            cpu.registers.A += immw
+            set_flags(cpu, cpu.registers.A)
+
+        @Operation(arg_def='b')
+        def sub_b(cpu: 'CPU', immb: int):
+            cpu.registers.A -= immb
+            set_flags(cpu, cpu.registers.A)
+
+        @Operation(arg_def='b')
+        def sub_w(cpu: 'CPU', immw: int):
+            cpu.registers.A -= immw
+            set_flags(cpu, cpu.registers.A)
+
+        @Operation(arg_def='w')
+        def cmp(cpu: 'CPU', immw: int):
+            set_flags(cpu, cpu.registers.A - immw)
+
+        @Operation(arg_def='a')
+        def je(cpu: 'CPU', addr: int):
+            if cpu.registers.F & Flag.Zero:
+                cpu.registers.IP = addr
+
+        @Operation(arg_def='a')
+        def ja(cpu: 'CPU', addr: int):
+            if cpu.registers.F & Flag.Greater:
+                cpu.registers.IP = addr
+
+        @Operation(arg_def='a')
+        def jae(cpu: 'CPU', addr: int):
+            if cpu.registers.F & (Flag.Equal | Flag.Greater):
+                cpu.registers.IP = addr
+
+        @Operation(arg_def='a')
+        def jb(cpu: 'CPU', addr: int):
+            if not (cpu.registers.F & (Flag.Equal | Flag.Greater)):
+                cpu.registers.IP = addr
+
+        @Operation(arg_def='a')
+        def jbe(cpu: 'CPU', addr: int):
+            if not (cpu.registers.F & Flag.Greater):
+                cpu.registers.IP = addr
+
 
     OPERATIONS_BY_OPCODE = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
     OPERATIONS_BY_MNEMONIC = {o.mnemonic: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
