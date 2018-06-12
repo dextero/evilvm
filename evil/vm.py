@@ -316,6 +316,8 @@ def addr_to_relative(mem: Memory, addr: int):
     return -abs_val if is_negative else abs_val
 
 
+class HaltRequested(Exception): pass
+
 class CPU:
     class Operations:
         @Operation(arg_def='b')
@@ -422,6 +424,10 @@ class CPU:
             if not (cpu.registers.F & Flag.Greater):
                 cpu.registers.IP = addr
 
+        @Operation()
+        def halt(cpu: 'CPU'):
+            raise HaltRequested()
+
 
     OPERATIONS_BY_OPCODE = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
     OPERATIONS_BY_MNEMONIC = {o.mnemonic: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
@@ -444,22 +450,25 @@ class CPU:
         self.ram = ram
         self.stack = stack
 
-        while self.registers.IP < len(program):
-            idx = self.registers.IP
+        try:
+            while True:
+                idx = self.registers.IP
 
-            try:
-                op = self.OPERATIONS_BY_OPCODE[program[idx]]
-            except KeyError as e:
-                raise KeyError('invalid opcode: %d (%x) at address %08x'
-                               % (program[idx], program[idx], idx)) from e
+                try:
+                    op = self.OPERATIONS_BY_OPCODE[program[idx]]
+                except KeyError as e:
+                    raise KeyError('invalid opcode: %d (%x) at address %08x'
+                                   % (program[idx], program[idx], idx)) from e
 
-            op_bytes = program[idx:idx+1+op.args_size]
-            args = op.decode_args(char_bit=program.char_bit,
-                                  memory=op_bytes[1:])
-            self.registers.IP = idx + 1 + op.args_size
+                op_bytes = program[idx:idx+1+op.args_size]
+                args = op.decode_args(char_bit=program.char_bit,
+                                      memory=op_bytes[1:])
+                self.registers.IP = idx + 1 + op.args_size
 
-            logging.debug('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytes)))
-            op.run(self, *args)
+                logging.debug('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytes)))
+                op.run(self, *args)
+        except HaltRequested:
+            pass
 
     def __str__(self):
         return ('--- REGISTERS ---\n'
