@@ -207,10 +207,12 @@ class Packer:
             except KeyError as e:
                 raise KeyError('unknown data size specified: %s' % c) from e
 
+            assert len(data) > 0
             result.append(packable.decode(endianness=endianness,
                                           val_bytes=data[:packable.size_bytes],
                                           char_bit=char_bit))
             data = data[packable.size_bytes:]
+
         assert len(data) == 0
         return result
 
@@ -265,20 +267,24 @@ class CPU:
     def __init__(self):
         self.registers = RegisterSet()
         self.ram = Memory(size=16, char_bit=9)
+        self.verbose = False
 
     def execute(self, program: Memory):
-        idx = 0
+        self.registers.IP = 0
 
-        while idx < len(program):
+        while self.registers.IP < len(program):
+            idx = self.registers.IP
             op = self.OPERATIONS[program[idx]]
+            op_bytes = program[idx:idx+1+op.args_size]
 
-            idx += 1
             args = op.decode_args(endianness=(Endianness.Little if op.opcode % 2 else Endianness.Big),
                                   char_bit=program.char_bit,
-                                  memory=program[idx:idx+op.args_size])
-            idx += op.args_size
+                                  memory=op_bytes[1:])
+            self.registers.IP = idx + 1 + op.args_size
 
-            print('%8s %s' % (op.mnemonic, ', '.join(str(x) for x in args)))
+            if self.verbose:
+                print('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytes)))
+
             op.run(self, *args)
 
     def __str__(self):
@@ -286,8 +292,11 @@ class CPU:
 
 
 cpu = CPU()
+cpu.verbose = True
 program = Memory(char_bit=9, value=[
     0, 256
 ])
-cpu.execute(program)
-print(cpu)
+try:
+    cpu.execute(program)
+finally:
+    print(cpu)
