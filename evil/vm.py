@@ -554,7 +554,7 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
     for label, refs in label_refs.items():
         for ref, op in refs:
             rel_addr = labels[label] - ref - Packer.calcsize(op.arg_def)
-            print('filling address @ %08x with %08x' % (ref, rel_addr))
+            logging.debug('filling address @ %08x with %08x' % (ref, rel_addr))
             bytecode[ref:ref+Packer.calcsize('a')] = Packer.pack(endianness=op.args_endianness,
                                                                  char_bit=char_bit,
                                                                  fmt='a',
