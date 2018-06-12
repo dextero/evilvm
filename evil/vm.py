@@ -119,13 +119,19 @@ class Memory:
     def __init__(self,
                  size: int = None,
                  value: typing.List[int] = None,
-                 char_bit: int = 8):
+                 char_bit: int = 8,
+                 alignment: int = 1):
         self._char_bit = char_bit
         self._memory = ([0] * size) if size else value
+        self._alignment = alignment
 
     @property
     def char_bit(self) -> int:
         return self._char_bit
+
+    @property
+    def alignment(self) -> int:
+        return self._alignment
 
     def __len__(self):
         return len(self._memory)
@@ -149,10 +155,9 @@ class Memory:
     def get_multibyte(self,
                       addr: int,
                       size_bytes: int,
-                      alignment: int,
                       endianness: Endianness) -> int:
-        if addr % alignment != 0:
-            raise UnalignedMemoryAccessError(address=addr, alignment=alignment)
+        if addr % self.alignment != 0:
+            raise UnalignedMemoryAccessError(address=addr, alignment=self.alignment)
 
         return value_from_bytes(endianness=endianness,
                                 val_bytes=self._memory[addr:addr+size_bytes],
@@ -162,10 +167,9 @@ class Memory:
                       addr: int,
                       value: int,
                       size_bytes: int,
-                      alignment: int,
                       endianness: Endianness):
-        if addr % alignment != 0:
-            raise UnalignedMemoryAccessError(address=addr, alignment=alignment)
+        if addr % self.alignment != 0:
+            raise UnalignedMemoryAccessError(address=addr, alignment=self.alignment)
         assert value < 2**(size_bytes * self.char_bit)
 
         self._memory[addr:addr+size_bytes] = bytes_from_value(endianness=endianness,
@@ -266,7 +270,7 @@ class CPU:
 
     def __init__(self):
         self.registers = RegisterSet()
-        self.ram = Memory(size=16, char_bit=9)
+        self.ram = Memory(size=16, char_bit=9, alignment=7)
         self.verbose = False
 
     def execute(self, program: Memory):
