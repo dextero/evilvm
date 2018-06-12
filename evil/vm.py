@@ -63,13 +63,19 @@ def value_from_bytes(endianness: Endianness,
     elif endianness == Endianness.PDP:
         val_le = reduce(list.__add__, (reversed(g) for g in group(val_bytes, 2)))
 
+    negative = False
+    msb = (1 << (char_bit - 1))
+    if val_le[-1] & msb:
+        negative = True
+        val_le[-1] &= ~msb
+
     val = 0
     for b in reversed(val_le):
         assert b < 2**char_bit
         val *= 2**char_bit
         val += b
 
-    return val
+    return -val if negative else val
 
 
 class Register(enum.Enum):
@@ -285,6 +291,10 @@ class Operation:
         self.operation = None
 
     @property
+    def size_bytes(self) -> int:
+        return 1 + self.args_size
+
+    @property
     def args_size(self) -> int:
         return Packer.calcsize(self.arg_def)
 
@@ -418,27 +428,27 @@ class CPU:
         @Operation(arg_def='a')
         def je_rel(cpu: 'CPU', addr: int):
             if cpu.registers.F & Flag.Zero:
-                cpu.registers.IP = addr
+                cpu.registers.IP += addr
 
         @Operation(arg_def='a')
         def ja_rel(cpu: 'CPU', addr: int):
             if cpu.registers.F & Flag.Greater:
-                cpu.registers.IP = addr
+                cpu.registers.IP += addr
 
         @Operation(arg_def='a')
         def jae_rel(cpu: 'CPU', addr: int):
             if cpu.registers.F & (Flag.Equal | Flag.Greater):
-                cpu.registers.IP = addr
+                cpu.registers.IP += addr
 
         @Operation(arg_def='a')
         def jb_rel(cpu: 'CPU', addr: int):
             if not (cpu.registers.F & (Flag.Equal | Flag.Greater)):
-                cpu.registers.IP = addr
+                cpu.registers.IP += addr
 
         @Operation(arg_def='a')
         def jbe_rel(cpu: 'CPU', addr: int):
             if not (cpu.registers.F & Flag.Greater):
-                cpu.registers.IP = addr
+                cpu.registers.IP += addr
 
         @Operation()
         def halt(cpu: 'CPU'):
@@ -458,6 +468,7 @@ class CPU:
     def _set_flags(self, value: int):
         self.registers.F = (Flag.Zero & (value == 0)
                             | Flag.Greater & (value > 0))
+        logging.debug('set_flags: %d; F = %d' % (value, self.registers.F))
 
     def execute(self,
                 program: Memory,
@@ -480,10 +491,10 @@ class CPU:
                     raise KeyError('invalid opcode: %d (%x) at address %08x'
                                    % (program[idx], program[idx], idx)) from e
 
-                op_bytes = program[idx:idx+1+op.args_size]
+                op_bytes = program[idx:idx+op.size_bytes]
                 args = op.decode_args(char_bit=program.char_bit,
                                       memory=op_bytes[1:])
-                self.registers.IP = idx + 1 + op.args_size
+                self.registers.IP = idx + op.size_bytes
 
                 logging.debug('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytes)))
                 op.run(self, *args)
@@ -506,12 +517,12 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
     label_refs = collections.defaultdict(list)
 
     def resolve_arg(text: str,
-                    offset: int,
+                    op_address: int,
+                    arg_offset: int, # relative to op address
                     op: Operation):
         try:
             return Register.by_name(text.upper()).value
         except KeyError:
-            logging.debug("not a register name: %s" % text)
             pass
 
         try:
@@ -520,7 +531,7 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
             else:
                 return int(text, 0)
         except ValueError:
-            label_refs[text].append((offset, op))
+            label_refs[text].append((op, op_address, arg_offset))
             return 0
 
     bytecode = []
@@ -541,28 +552,41 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
             except KeyError as e:
                 raise KeyError('invalid opcode: %s' % mnemonic) from e
 
-            bytecode += [op.opcode]
-            arg_off = 0
+            op_bytecode = [op.opcode]
+            arg_off = len(op_bytecode)
             args = []
             for idx, arg in enumerate(argline.split()):
                 arg = arg.strip(',') # TODO: UGLYYY
-                args.append(resolve_arg(arg, len(bytecode) + arg_off, op))
-                arg_off += Packer.calcsize(op.arg_def[idx])
+                args.append(resolve_arg(arg, len(bytecode), arg_off, op))
+                arg_off += Packer.calcsize(op.arg_def[idx]) 
 
-            bytecode += op.encode_args(char_bit=char_bit, args=args)
+            op_bytecode += op.encode_args(char_bit=char_bit, args=args)
+
+            logging.debug('% 9s %s' % ('', line))
+            logging.debug('%08x: %-8s %-20s %s' % (len(bytecode), op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytecode)))
+            bytecode += op_bytecode
 
     for label, refs in label_refs.items():
-        for ref, op in refs:
-            addr = labels[label]
+        for op, op_address, arg_offset in refs:
+            target_addr = labels[label]
+            fill_addr = op_address + arg_offset
+
             needs_relative_addr = op.mnemonic.endswith('.rel')
             if needs_relative_addr:
-                addr = addr - ref - Packer.calcsize(op.arg_def)
+                # At the point of executing OP, IP points to the next instruction
+                target_addr = target_addr - op_address - op.size_bytes
 
-            logging.debug('filling address @ %08x with %08x' % (ref, addr))
-            bytecode[ref:ref+Packer.calcsize('a')] = Packer.pack(endianness=op.args_endianness,
-                                                                 char_bit=char_bit,
-                                                                 fmt='a',
-                                                                 args=[addr])
+            logging.debug('filling address @ %08x with %08x (%s, %s)'
+                          % (fill_addr, target_addr, label, 'relative' if needs_relative_addr else 'absolute'))
+
+            packed_addr = Packer.pack(endianness=op.args_endianness,
+                                      char_bit=char_bit,
+                                      fmt='a',
+                                      args=[target_addr])
+            bytecode[fill_addr:fill_addr+Packer.calcsize('a')] = packed_addr
+
+    logging.debug(text)
+    logging.debug(['%03x' % b for b in bytecode])
 
     return bytecode
 
@@ -577,17 +601,19 @@ program = Memory(char_bit=9, alignment=1, value=asm_compile("""
 
 print:
     ldb.r a, c
-    je print_done
+    je.rel print_done
+    out
     add.b c, 1
     jmp.rel print
  print_done:
-    halt
     ret
 
 """, char_bit=9))
+
+# sys.exit(1)
 
 try:
     cpu = CPU()
     cpu.execute(program=program, ram=data, stack=stack)
 finally:
-    print(cpu)
+    logging.debug(cpu)
