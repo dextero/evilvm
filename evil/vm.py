@@ -132,7 +132,7 @@ class RegisterSet:
 
 class UnalignedMemoryAccessError(Exception):
     def __init__(self, address: int, alignment: int):
-        super().__init__('Address %x is not %d-byte aligned' % (address, alignment))
+        super().__init__('Address %#x is not %d-byte aligned' % (address, alignment))
 
 
 class Memory:
