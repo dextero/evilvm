@@ -565,16 +565,19 @@ logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 data = Memory(char_bit=9, alignment=7, value=b'Hello World!', size=128)
 stack = Memory(char_bit=9, alignment=5, size=5*32)
 program = Memory(char_bit=9, alignment=1, value=asm_compile("""
-    movb.i2a 123
-    movb.a2m 0
-    movb.m2a 0
-    movw.i2a 1111111111111111
-    movw.a2m 7
-    movw.m2a 7
-    movb.i2a 'A'
-loop:
-    out
-    jmp.rel loop
+    movb.i2r c, 0
+    call.rel print
+    halt
+
+print:
+    ldb.r a, c
+    je print_done
+    add.b c, 1
+    jmp.rel print
+ print_done:
+    halt
+    ret
+
 """, char_bit=9))
 
 try:
