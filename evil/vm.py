@@ -3,6 +3,7 @@
 
 import enum
 import typing
+import logging
 
 
 def group(seq, n):
@@ -288,7 +289,6 @@ class CPU:
     def __init__(self):
         self.registers = RegisterSet()
         self.ram = Memory(size=16, char_bit=9, alignment=7)
-        self.verbose = False
 
     def execute(self, program: Memory):
         self.registers.IP = 0
@@ -307,9 +307,7 @@ class CPU:
                                   memory=op_bytes[1:])
             self.registers.IP = idx + 1 + op.args_size
 
-            if self.verbose:
-                print('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytes)))
-
+            logging.debug('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytes)))
             op.run(self, *args)
 
     def __str__(self):
@@ -317,7 +315,6 @@ class CPU:
 
 
 cpu = CPU()
-cpu.verbose = True
 program = Memory(char_bit=9, value=[
     0, 256,
     1, 0, 0, 0, 0, 0,
