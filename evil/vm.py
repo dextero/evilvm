@@ -278,9 +278,13 @@ class CPU:
 
         while self.registers.IP < len(program):
             idx = self.registers.IP
-            op = self.OPERATIONS[program[idx]]
-            op_bytes = program[idx:idx+1+op.args_size]
 
+            try:
+                op = self.OPERATIONS[program[idx]]
+            except KeyError as e:
+                raise KeyError('invalid opcode: %d' % program[idx]) from e
+
+            op_bytes = program[idx:idx+1+op.args_size]
             args = op.decode_args(endianness=(Endianness.Little if op.opcode % 2 else Endianness.Big),
                                   char_bit=program.char_bit,
                                   memory=op_bytes[1:])
