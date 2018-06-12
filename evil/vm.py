@@ -266,6 +266,23 @@ class CPU:
         def movb_a2m(cpu: 'CPU', addr: int):
             cpu.ram[addr] = cpu.registers.A
 
+        @Operation(arg_def='w')
+        def movw_i2a(cpu: 'CPU', immw: int):
+            cpu.registers.A = immw
+
+        @Operation(arg_def='a')
+        def movw_m2a(cpu: 'CPU', addr: int):
+            cpu.registers.A = cpu.ram.get_multibyte(addr,
+                                                    size_bytes=Packer.calcsize('w'),
+                                                    endianness=Endianness.Little) # TODO
+
+        @Operation(arg_def='a')
+        def movw_a2m(cpu: 'CPU', addr: int):
+            cpu.ram.set_multibyte(addr,
+                                  cpu.registers.A,
+                                  size_bytes=Packer.calcsize('w'),
+                                  endianness=Endianness.Little) # TODO
+
     OPERATIONS = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
 
     def __init__(self):
