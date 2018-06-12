@@ -5,6 +5,7 @@ import enum
 import typing
 import logging
 import sys
+import os
 
 
 def group(seq, n):
@@ -421,6 +422,8 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
         bytecode += [op.opcode] + op.encode_args(char_bit=char_bit, args=args)
 
     return bytecode
+
+logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
 data = Memory(char_bit=9, alignment=7, value=b'Hello World!', size=128)
 stack = Memory(char_bit=9, alignment=7, size=128)
