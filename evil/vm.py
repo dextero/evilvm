@@ -333,13 +333,6 @@ class Operation:
         self.mnemonic = wrapped.__name__.replace('_', '.')
         return self
 
-def addr_to_relative(mem: Memory, addr: int):
-    msb = (1 << (Packer.calcsize('a') * mem.char_bit - 1))
-    is_negative = addr & msb
-    abs_val = addr & ~msb
-    return -abs_val if is_negative else abs_val
-
-
 class HaltRequested(Exception): pass
 
 class CPU:
@@ -389,7 +382,7 @@ class CPU:
 
         @Operation(arg_def='a')
         def jmp_rel(cpu: 'CPU', addr: int):
-            cpu.registers.IP += addr_to_relative(cpu.ram, addr)
+            cpu.registers.IP += addr
 
         @Operation()
         def out(cpu: 'CPU'):
@@ -402,7 +395,7 @@ class CPU:
             cpu.stack.set_multibyte(cpu.registers.SP,
                                     cpu.registers.IP,
                                     size_bytes=addr_size)
-            cpu.registers.IP += addr_to_relative(cpu.program, addr)
+            cpu.registers.IP += addr
 
         @Operation()
         def ret(cpu: 'CPU'):
@@ -587,9 +580,9 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
             needs_relative_addr = op.mnemonic.endswith('.rel')
             if needs_relative_addr:
                 # At the point of executing OP, IP points to the next instruction
-                target_addr = target_addr - op_address - op.size_bytes
+                target_addr = target_addr - (op_address + op.size_bytes)
 
-            logging.debug('filling address @ %08x with %08x (%s, %s)'
+            logging.debug('filling address @ %#010x with %#010x (%s, %s)'
                           % (fill_addr, target_addr, label, 'relative' if needs_relative_addr else 'absolute'))
 
             packed_addr = Packer.pack(endianness=op.args_endianness,
