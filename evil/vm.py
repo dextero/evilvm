@@ -9,8 +9,23 @@ import collections
 import os
 
 
-def group(seq, n):
+def group(seq, n, fill=None):
+    if fill is not None:
+        seq = list(seq) + [fill] * (n - 1)
     return zip(*[iter(seq)] * n)
+
+def make_bytes_dump(data: typing.List[int],
+                    char_bit: int,
+                    alignment: int):
+    byte_str_len = len('%x' % (2**char_bit - 1))
+    words_per_line = 70 // ((alignment * (byte_str_len + 1)) + 1)
+    byte_fmt = '%%0%dx' % byte_str_len
+
+    word_groups = group(data, alignment, fill=0)
+    line_groups = group(word_groups, words_per_line, fill=tuple([0] * alignment))
+
+    lines = ('  '.join(' '.join((byte_fmt % b) for b in w) for w in wg) for wg in line_groups)
+    return '\n'.join('%08x  %s' % (idx * words_per_line * alignment, line) for idx, line in enumerate(lines))
 
 
 class Endianness(enum.Enum):
@@ -210,15 +225,7 @@ class Memory:
                                                               num_bytes=size_bytes)
 
     def __str__(self):
-        byte_str_len = len('%x' % (2**self.char_bit - 1))
-        words_per_line = 70 // ((self.alignment * (byte_str_len + 1)) + 1)
-        byte_fmt = '%%0%dx' % byte_str_len
-
-        word_groups = group(self._memory, self.alignment)
-        line_groups = group(word_groups, words_per_line)
-
-        lines = ('  '.join(' '.join((byte_fmt % b) for b in w) for w in wg) for wg in line_groups)
-        return '\n'.join('%08x  %s' % (idx * words_per_line, line) for idx, line in enumerate(lines))
+        return make_bytes_dump(self._memory, self.char_bit, self.alignment)
 
 
 class Packer:
@@ -592,7 +599,7 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
             bytecode[fill_addr:fill_addr+Packer.calcsize('a')] = packed_addr
 
     logging.debug(text)
-    logging.debug(['%03x' % b for b in bytecode])
+    logging.debug('bytecode:\n' + make_bytes_dump(bytecode, char_bit, alignment=4))
 
     return bytecode
 
