@@ -321,32 +321,46 @@ class HaltRequested(Exception): pass
 
 class CPU:
     class Operations:
-        @Operation(arg_def='b')
-        def movb_i2a(cpu: 'CPU', immb: int):
-            cpu.registers.A = immb
+        @Operation(arg_def='rr')
+        def movw_r2r(cpu: 'CPU', dst_reg: int, src_reg: int):
+            cpu.registers[Register(dst_reg)] = cpu.registers[Register(src_reg)]
 
-        @Operation(arg_def='a')
-        def movb_m2a(cpu: 'CPU', addr: int):
-            cpu.registers.A = cpu.ram[addr]
+        @Operation(arg_def='rb')
+        def movb_i2r(cpu: 'CPU', reg: int, immb: int):
+            cpu.registers[Register(reg)] = immb
 
-        @Operation(arg_def='a')
-        def movb_a2m(cpu: 'CPU', addr: int):
-            cpu.ram[addr] = cpu.registers.A
+        @Operation(arg_def='ra')
+        def movb_m2r(cpu: 'CPU', reg: int, addr: int):
+            cpu.registers[Register(reg)] = cpu.ram[addr]
 
-        @Operation(arg_def='w')
-        def movw_i2a(cpu: 'CPU', immw: int):
-            cpu.registers.A = immw
+        @Operation(arg_def='ar')
+        def movb_r2m(cpu: 'CPU', addr: int, reg: int):
+            cpu.ram[addr] = cpu.registers[Register(reg)]
 
-        @Operation(arg_def='a')
-        def movw_m2a(cpu: 'CPU', addr: int):
-            cpu.registers.A = cpu.ram.get_multibyte(addr,
-                                                    size_bytes=Packer.calcsize('w'))
+        @Operation(arg_def='rw')
+        def movw_i2r(cpu: 'CPU', reg: int, immw: int):
+            cpu.registers[Register(reg)] = immw
 
-        @Operation(arg_def='a')
-        def movw_a2m(cpu: 'CPU', addr: int):
+        @Operation(arg_def='ra')
+        def movw_m2r(cpu: 'CPU', reg: int, addr: int):
+            cpu.registers[Register(reg)] = \
+                    cpu.ram.get_multibyte(addr, size_bytes=Packer.calcsize('w'))
+
+        @Operation(arg_def='ar')
+        def movw_r2m(cpu: 'CPU', addr: int, reg: int):
             cpu.ram.set_multibyte(addr,
-                                  cpu.registers.A,
+                                  cpu.registers[Register(reg)],
                                   size_bytes=Packer.calcsize('w'))
+
+        @Operation(arg_def='rr')
+        def ldb_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
+            cpu.registers[Register(dst_reg)] = cpu.ram[cpu.registers[Register(addr_reg)]]
+
+        @Operation(arg_def='rr')
+        def ldw_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
+            cpu.registers[Register(reg)] = \
+                    cpu.ram.get_multibyte(cpu.registers[Register(addr_reg)],
+                                          size_bytes=Packer.calcsize('w'))
 
         @Operation(arg_def='a')
         def jmp_rel(cpu: 'CPU', addr: int):
@@ -371,34 +385,33 @@ class CPU:
             cpu.registers.IP = cpu.stack.get_multibyte(cpu.registers.SP,
                                                        size_bytes=addr_size)
 
-        @staticmethod
-        def set_flags(cpu: 'CPU', value: int):
-            cpu.registers.F = (Flag.Zero & (value == 0)
-                               | Flag.Greater & (value > 0))
+        @Operation(arg_def='rb')
+        def add_b(cpu: 'CPU', reg: int, immb: int):
+            cpu.registers[Register(reg)] += immb
+            cpu._set_flags(cpu.registers[Register(reg)])
 
-        @Operation(arg_def='b')
-        def add_b(cpu: 'CPU', immb: int):
-            cpu.registers.A += immb
-            set_flags(cpu, cpu.registers.A)
+        @Operation(arg_def='rw')
+        def add_w(cpu: 'CPU', reg: int, immw: int):
+            cpu.registers[Register(reg)] += immw
+            cpu._set_flags(cpu.registers[Register(reg)])
 
-        @Operation(arg_def='w')
-        def add_w(cpu: 'CPU', immw: int):
-            cpu.registers.A += immw
-            set_flags(cpu, cpu.registers.A)
+        @Operation(arg_def='rb')
+        def sub_b(cpu: 'CPU', reg: int, immb: int):
+            cpu.registers[Register(reg)] -= immb
+            cpu._set_flags(cpu.registers[Register(reg)])
 
-        @Operation(arg_def='b')
-        def sub_b(cpu: 'CPU', immb: int):
-            cpu.registers.A -= immb
-            set_flags(cpu, cpu.registers.A)
+        @Operation(arg_def='rb')
+        def sub_w(cpu: 'CPU', reg: int, immw: int):
+            cpu.registers[Register(reg)] -= immw
+            cpu._set_flags(cpu.registers[Register(reg)])
 
-        @Operation(arg_def='b')
-        def sub_w(cpu: 'CPU', immw: int):
-            cpu.registers.A -= immw
-            set_flags(cpu, cpu.registers.A)
+        @Operation(arg_def='rw')
+        def cmp_w(cpu: 'CPU', reg: int, immw: int):
+            cpu._set_flags(cpu.registers[Register(reg)] - immw)
 
-        @Operation(arg_def='w')
-        def cmp(cpu: 'CPU', immw: int):
-            set_flags(cpu, cpu.registers.A - immw)
+        @Operation(arg_def='rr')
+        def cmp_r(cpu: 'CPU', reg_a: int, reg_b: int):
+            cpu._set_flags(cpu.registers[Register(reg_a)] - cpu.registers[Register(reg_b)])
 
         @Operation(arg_def='a')
         def je(cpu: 'CPU', addr: int):
@@ -439,6 +452,10 @@ class CPU:
         self.flash = None
         self.ram = None
         self.stack = None
+
+    def _set_flags(self, value: int):
+        self.registers.F = (Flag.Zero & (value == 0)
+                            | Flag.Greater & (value > 0))
 
     def execute(self,
                 program: Memory,
@@ -490,6 +507,12 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
                     offset: int,
                     op: Operation):
         try:
+            return Register.by_name(text.upper()).value
+        except KeyError:
+            logging.debug("not a register name: %s" % text)
+            pass
+
+        try:
             if text[0] == "'" and text[-1] == "'":
                 return ord(text[1:-1])
             else:
@@ -502,10 +525,9 @@ def asm_compile(text: str, char_bit: int) -> typing.List[int]:
 
     for line in text.strip().split('\n'):
         line = line.strip()
-
         if line.endswith(':'):
             labels[line[:-1]] = len(bytecode)
-        else:
+        elif line:
             if ' ' in line:
                 mnemonic, argline = line.split(' ', maxsplit=1)
             else:
