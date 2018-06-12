@@ -53,7 +53,7 @@ def value_from_bytes(endianness: Endianness,
     val = 0
     for b in reversed(val_le):
         assert b < 2**char_bit
-        val_le *= 2**char_bit
+        val *= 2**char_bit
         val += b
 
     return val
