@@ -319,7 +319,12 @@ class CPU:
 cpu = CPU()
 cpu.verbose = True
 program = Memory(char_bit=9, value=[
-    0, 256
+    0, 256,
+    1, 0, 0, 0, 0, 0,
+    2, 0, 0, 0, 0, 0,
+    3, 123, 123, 123, 123, 123, 123, 123,
+    4, 0, 0, 0, 0, 0,
+    5, 0, 0, 0, 0, 0,
 ])
 try:
     cpu.execute(program)
