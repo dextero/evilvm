@@ -218,7 +218,7 @@ class Packer:
 
     _values = {p.name: p for p in [
         Packable(name='b', size_bytes=1),
-        Packable(name='h', size_bytes=3),
+        Packable(name='r', size_bytes=1), # register index
         Packable(name='a', size_bytes=5),
         Packable(name='w', size_bytes=7),
     ]}
