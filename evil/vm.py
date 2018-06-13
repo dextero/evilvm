@@ -45,8 +45,32 @@ parser.add_argument('-b', '--char-bit',
                     type=int,
                     default=9,
                     help='Number of bits per byte.')
+parser.add_argument('-w', '--word-size',
+                    type=int,
+                    default=7,
+                    help='Number of bytes per machine word.')
+parser.add_argument('-W', '--word-alignment',
+                    type=int,
+                    default=None,
+                    help='Machine word memory alignment. By default, equal to machine word size.')
+parser.add_argument('-a', '--addr-size',
+                    type=int,
+                    default=5,
+                    help='Number of bytes per memory address.')
+parser.add_argument('-A', '--addr-alignment',
+                    type=int,
+                    default=None,
+                    help='Address memory alignment. By default, equal to address size.')
 
 args = parser.parse_args()
+
+
+DataType._TYPES['w'] = DataType(name='w',
+                                size_bytes=args.word_size,
+                                alignment=(args.word_alignment or args.word_size))
+DataType._TYPES['a'] = DataType(name='a',
+                                size_bytes=args.addr_size,
+                                alignment=(args.addr_alignment or args.addr_size))
 
 with open(args.source[0]) as infile:
     asm = Assembler(char_bit=args.char_bit)
@@ -54,7 +78,8 @@ with open(args.source[0]) as infile:
         MEMORY_BLOCKS['program'] = asm.assemble_to_memory(infile.read())
     else:
         MEMORY_BLOCKS['program'] = Memory(char_bit=args.char_bit,
-                                          value=asm.assemble(infile.read()))
+                                          value=asm.assemble(infile.read()),
+                                          size=args.program_size)
 
 MEMORY_BLOCKS['ram'] = Memory(char_bit=args.char_bit, size=DataType.calcsize('w') * args.ram_size)
 MEMORY_BLOCKS['stack'] = Memory(char_bit=args.char_bit, size=DataType.calcsize('a') * args.stack_size)
