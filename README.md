@@ -1,7 +1,7 @@
 Evil VM
 =======
 
-A simple virtual machine for a made-up architecture.
+A simple generic virtual machine for a made-up architecture.
 
 This is *very much* work-in-progress. Expect stuff to break in unexpected ways.
 
@@ -9,7 +9,13 @@ This is *very much* work-in-progress. Expect stuff to break in unexpected ways.
 Usage
 =====
 
+    # run a simple Hello World
     python3 -m evil.vm asm/hello.asm
+
+    # make the VM use some more familiar settings
+    python3 -m evil.vm ./hello.asm --char-bit 8 --word-size 4 --addr-size 4 --map-memory ram=program stack=program
+
+    # display help message
     python3 -m evil.vm --help
 
 
