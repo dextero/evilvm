@@ -254,7 +254,6 @@ class CPU:
     def _set_flags(self, value: int):
         self.registers.F = (Flag.Zero & (value == 0)
                             | Flag.Greater & (value > 0))
-        logging.debug('set_flags: %d; F = %d' % (value, self.registers.F))
 
     def execute(self,
                 program: Memory,
@@ -280,7 +279,7 @@ class CPU:
                 args = op.decode_args(memory=program, addr=idx + op.opcode_size_bytes)
                 self.registers.IP = idx + op.size_bytes
 
-                logging.debug('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in program[idx:idx+op.size_bytes])))
+                logging.debug('%08x  %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in program[idx:idx+op.size_bytes])))
                 op.run(self, *args)
         except HaltRequested:
             pass
