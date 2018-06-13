@@ -366,6 +366,18 @@ class CPU:
         self.registers.F = (Flag.Zero & (value == 0)
                             | Flag.Greater & (value > 0))
 
+    def _log_instruction(self,
+                         op: Operation,
+                         args: List[int],
+                         op_memory: List[int]):
+        args_str = ', '.join(str(x) for x in args)
+
+        byte_fmt_len = len('%x' % 2**(self.program.char_bit - 1))
+        byte_fmt = '%0{0}x'.format(byte_fmt_len)
+        bytecode_str = ' '.join(byte_fmt % b for b in op_memory)
+
+        logging.debug('%08x  %-8s %-20s %s' % (self.registers.IP, op.mnemonic, args_str, bytecode_str))
+
     def execute(self,
                 program: Memory,
                 ram: Memory,
@@ -388,9 +400,9 @@ class CPU:
                                    % (program[idx], program[idx], idx)) from e
 
                 args = op.decode_args(memory=program, addr=idx + op.opcode_size_bytes)
-                self.registers.IP = idx + op.size_bytes
+                self._log_instruction(op, args, program[idx:idx+op.size_bytes])
 
-                logging.debug('%08x  %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in program[idx:idx+op.size_bytes])))
+                self.registers.IP = idx + op.size_bytes
                 op.run(self, *args)
         except HaltRequested:
             pass
