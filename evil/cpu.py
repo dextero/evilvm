@@ -175,7 +175,7 @@ class Operations:
         addr_size = DataType.calcsize('a')
         cpu.registers.SP -= addr_size
         cpu.stack.set_fmt('a', cpu.registers.SP, cpu.registers.IP)
-        cpu.registers.IP += addr_size
+        cpu.registers.IP += addr
 
     @Operation()
     def ret(cpu: 'CPU'):

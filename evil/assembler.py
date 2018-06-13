@@ -62,24 +62,32 @@ class Assembler:
       filling in label values if necessary.
     """
 
-    class Immediate(NamedTuple):
+    class IRElement:
+        pass
+
+    class Immediate(NamedTuple, IRElement):
         """ Literal value. """
         value: int
         endianness: Endianness
         datatype: DataType
 
-    class RegisterRef(NamedTuple):
+    class RegisterRef(NamedTuple, IRElement):
         """ CPU register reference. """
         reg: Register
         endianness: Endianness
         datatype: DataType = DataType.from_fmt('r')
 
-    class LabelRef(NamedTuple):
+    class LabelRef(NamedTuple, IRElement):
         """ Named label reference. """
         label: str
         endianness: Endianness
         relative: bool
         datatype: DataType = DataType.from_fmt('a')
+
+    class LineIR(NamedTuple):
+        source: str
+        elements: List['IRElement']
+        bytecode: List[int]
 
     def __init__(self, char_bit: int):
         self._char_bit = char_bit
@@ -132,15 +140,27 @@ class Assembler:
         else:
             raise ValueError('unsupported argument type: %s' % arg_type)
 
-    def _append_instruction(self, line: str):
+    def _append_instruction(self,
+                            line: str,
+                            line_num: int):
         """
         Parses LINE as an instruction and appends its intermediate
         representation to self._intermediate.
         """
-        if ' ' in line:
-            mnemonic, argline = line.split(' ', maxsplit=1)
+        stripped_line = line.strip()
+        if stripped_line.endswith(':'):
+            self._labels[stripped_line[:-1]] = self._curr_offset
+            self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
+            return
+
+        if not stripped_line:
+            self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
+            return
+
+        if ' ' in stripped_line:
+            mnemonic, argline = stripped_line.split(' ', maxsplit=1)
         else:
-            mnemonic = line
+            mnemonic = stripped_line
             argline = ''
 
         try:
@@ -153,7 +173,7 @@ class Assembler:
             arg = arg.strip(',') # TODO: UGLYYY
             op_ir.append(self._parse_arg(arg, operation, operation.arg_def[idx]))
 
-        self._intermediate += op_ir
+        self._intermediate.append(Assembler.LineIR(line, op_ir, bytecode=[]))
         self._curr_offset += operation.size_bytes
 
     def _label_ref_to_address(self,
@@ -164,56 +184,71 @@ class Assembler:
             target_addr -= curr_ip
         return target_addr
 
-    def _compile(self) -> Bytecode:
+    def _compile(self) -> Memory:
         """
-        Converts intermediate representation to bytecode.
+        Fills .bytecode field of IRElements in self._intermediate,
+        returns memory block with whole source bytecode
         """
-
         curr_ip = 0 # instruction pointer value at the point of running current op
         mem = ExtendableMemory(self._char_bit)
 
-        for elem in self._intermediate:
-            if isinstance(elem, Operation):
-                curr_ip = len(mem) + elem.size_bytes
-                mem.append(elem.opcode,
-                           DataType.from_fmt('b'),
-                           Endianness.Little)
-            elif isinstance(elem, Assembler.Immediate):
-                mem.append(elem.value,
-                           elem.datatype,
-                           elem.endianness)
-            elif isinstance(elem, Assembler.RegisterRef):
-                mem.append(elem.reg.value,
-                           elem.datatype,
-                           elem.endianness)
-            elif isinstance(elem, Assembler.LabelRef):
-                mem.append(self._label_ref_to_address(elem, curr_ip),
-                           elem.datatype,
-                           elem.endianness)
-            else:
-                raise AssertionError('unhandled IR type: %s' % type(elem).__name__)
+        for line in self._intermediate:
+            prev_ip = curr_ip
 
-        return Bytecode.from_memory(mem)
+            for elem in line.elements:
+                if isinstance(elem, Operation):
+                    curr_ip = len(mem) + elem.size_bytes
+                    mem.append(elem.opcode,
+                               DataType.from_fmt('b'),
+                               Endianness.Little)
+                elif isinstance(elem, Assembler.Immediate):
+                    mem.append(elem.value,
+                               elem.datatype,
+                               elem.endianness)
+                elif isinstance(elem, Assembler.RegisterRef):
+                    mem.append(elem.reg.value,
+                               elem.datatype,
+                               elem.endianness)
+                elif isinstance(elem, Assembler.LabelRef):
+                    mem.append(self._label_ref_to_address(elem, curr_ip),
+                               elem.datatype,
+                               elem.endianness)
+                else:
+                    raise AssertionError('unhandled IR type: %s' % type(elem).__name__)
 
-    def assemble(self,
-                 source: str) -> Bytecode:
-        """
-        Turns SOURCE into compiled form.
-        """
+            line.bytecode[:] = mem[prev_ip:]
+
+        return mem
+
+    def _log_source(self):
+        bc_fmt_size = len('%x' % (2**self._char_bit - 1))
+        bc_fmt = '%0{0}x'.format(bc_fmt_size)
+
+        def bytecode_hex(bytecode):
+            return ' '.join(bc_fmt % b for b in bytecode)
+
+        max_line_len = max(len(ir.source) for ir in self._intermediate)
+        line_fmt = '%08x  %-{0}s  %s'.format(max_line_len)
+
+        logging.debug('--- ASSEMBLY ---')
+
+        addr = 0
+        for line_ir in self._intermediate:
+            logging.debug(line_fmt % (addr, line_ir.source, bytecode_hex(line_ir.bytecode)))
+            addr += len(line_ir.bytecode)
+
+        logging.debug('--- ASSEMBLY END ---')
+
+    def assemble_to_memory(self, source: str) -> Memory:
         self._reset()
 
-        instructions = (l.strip() for l in source.strip().split('\n'))
-        instructions = (i for i in instructions if i)
-        for instr in instructions:
-            if instr.endswith(':'):
-                self._labels[instr[:-1]] = self._curr_offset
-            else:
-                self._append_instruction(instr)
+        instructions = source.strip().split('\n')
+        for line_num, instr in enumerate(instructions, start=1):
+            self._append_instruction(instr, line_num)
 
-        bytecode = self._compile()
+        mem = self._compile()
+        self._log_source()
+        return mem
 
-        logging.debug(source)
-        logging.debug('bytecode:\n%s',
-                      make_bytes_dump(bytecode, bytecode.char_bit, alignment=4))
-
-        return bytecode
+    def assemble(self, source: str) -> Bytecode:
+        return Bytecode.from_memory(self.assemble_to_memory(source))

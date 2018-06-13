@@ -183,3 +183,8 @@ class ExtendableMemory(Memory):
                datatype: DataType,
                endianness: Endianness):
         return self._set_datatype(len(self), value, datatype, endianness)
+
+    def freeze(self) -> Memory:
+        frozen = Memory(self.char_bit, value=self._memory)
+        self.value = []
+        return frozen
