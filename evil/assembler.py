@@ -82,7 +82,7 @@ class Assembler:
         label: str
         endianness: Endianness
         relative: bool
-        datatype: DataType = DataType.from_fmt('a')
+        datatype: DataType
 
     class LineIR(NamedTuple):
         source: str
@@ -124,10 +124,14 @@ class Assembler:
         """
         Parses an instruction argument, returning its numeric value.
         """
-        if arg_type == 'r':
+        if arg_type in 'r':
             return Assembler.RegisterRef(Register.by_name(text.upper()),
                                          endianness=operation.args_endianness)
-        elif arg_type in ('b', 'w', 'a'):
+        elif arg_type in 'b':
+            # literal value
+            return self._parse_immediate(text, operation,
+                                         DataType.from_fmt(arg_type))
+        elif arg_type in 'aw':
             try:
                 # literal value
                 return self._parse_immediate(text, operation,
@@ -136,6 +140,7 @@ class Assembler:
                 # label
                 return Assembler.LabelRef(label=text,
                                           endianness=operation.args_endianness,
+                                          datatype=DataType.from_fmt(arg_type),
                                           relative=operation.mnemonic.endswith('.rel'))
         else:
             raise ValueError('unsupported argument type: %s' % arg_type)
