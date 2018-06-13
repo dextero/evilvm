@@ -14,7 +14,7 @@ logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
 MEMORY_BLOCKS = {}
 
-parser = argparse.ArgumentParser(description='''
+parser = argparse.ArgumentParser('evilvm', description='''
 Run a program within the Evil VM.
 
 Recognized environment variables:
