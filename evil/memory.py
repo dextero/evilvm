@@ -108,7 +108,7 @@ class Memory:
             result.append(self._get_datatype(addr, datatype, endianness))
             addr += datatype.size_bytes
 
-        return result
+        return result if len(result) != 1 else result[0]
 
     def set_fmt(self,
                 fmt: str,
