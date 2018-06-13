@@ -19,7 +19,7 @@ Run a program within the Evil VM.
 
 Recognized environment variables:
 - LOGLEVEL - log level to use. Default is INFO; DEBUG may print some interesting stuff.
-''')
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument(dest='source',
                     nargs=1,
                     default='/dev/stdin',

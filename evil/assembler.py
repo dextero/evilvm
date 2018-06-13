@@ -6,8 +6,8 @@ import logging
 from typing import List, NamedTuple, Sequence
 
 from evil.cpu import CPU, Register, Operation
-from evil.utils import make_bytes_dump, tokenize
-from evil.endianness import Endianness, bytes_from_value
+from evil.utils import tokenize
+from evil.endianness import Endianness
 from evil.memory import Memory, ExtendableMemory, DataType
 
 
