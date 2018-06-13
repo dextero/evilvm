@@ -140,9 +140,7 @@ class Assembler:
         else:
             raise ValueError('unsupported argument type: %s' % arg_type)
 
-    def _append_instruction(self,
-                            line: str,
-                            line_num: int):
+    def _append_instruction(self, line: str):
         """
         Parses LINE as an instruction and appends its intermediate
         representation to self._intermediate.
@@ -243,8 +241,8 @@ class Assembler:
         self._reset()
 
         instructions = source.strip().split('\n')
-        for line_num, instr in enumerate(instructions, start=1):
-            self._append_instruction(instr, line_num)
+        for instr in instructions:
+            self._append_instruction(instr)
 
         mem = self._compile()
         self._log_source()
