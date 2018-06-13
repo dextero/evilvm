@@ -15,7 +15,7 @@ CHAR_BIT=9
 
 asm = Assembler(char_bit=CHAR_BIT)
 
-data = Memory(char_bit=CHAR_BIT, value=b'Hello World!', size=128)
+data = Memory(char_bit=CHAR_BIT, size=128)
 stack = Memory(char_bit=CHAR_BIT, size=5*32)
 program = Memory(char_bit=CHAR_BIT, value=asm.assemble(sys.stdin.read()))
 
