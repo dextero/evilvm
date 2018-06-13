@@ -4,7 +4,7 @@ from typing import List, Any, NamedTuple, Callable
 import sys
 
 from evil.endianness import Endianness, bytes_from_value, value_from_bytes
-from evil.memory import Memory
+from evil.memory import Memory, DataType
 
 class Register(enum.Enum):
     """ CPU register """
@@ -70,80 +70,6 @@ class RegisterSet:
         return '\n'.join('%s = %d (%x)' % (n, v, v) for n, v in self._registers.items())
 
 
-class Packer:
-    """
-    Helper class for packing/unpacking CPU operation arguments.
-    """
-    class Packable(NamedTuple):
-        """ Type specifier definition """
-        name: str
-        size_bytes: int
-
-    _values = {p.name: p for p in [
-        Packable(name='b', size_bytes=1),
-        Packable(name='r', size_bytes=1), # register index
-        Packable(name='a', size_bytes=5),
-        Packable(name='w', size_bytes=7),
-    ]}
-
-    @classmethod
-    def calcsize(cls, fmt: str):
-        """
-        Returns number of bytes occupied by arguments described by given FMT.
-        """
-        return sum(cls._values[c].size_bytes for c in fmt)
-
-    @classmethod
-    def unpack(cls,
-               endianness: Endianness,
-               char_bit: int,
-               fmt: str,
-               data: List[int]) -> List[Any]:
-        """
-        Decodes arguments from DATA, based on FMT specifier.
-        """
-        result = []
-        for fmt_c in fmt:
-            try:
-                packable = cls._values[fmt_c]
-            except KeyError as err:
-                raise KeyError('unknown data size specified: %s' % fmt_c) from err
-
-            assert data
-            result.append(value_from_bytes(endianness=endianness,
-                                           val_bytes=data[:packable.size_bytes],
-                                           char_bit=char_bit))
-            data = data[packable.size_bytes:]
-
-        assert not data
-        return result
-
-    @classmethod
-    def pack(cls,
-             endianness: Endianness,
-             char_bit: int,
-             fmt: str,
-             args: List[int]) -> List[int]:
-        """
-        Encodes ARGS into array of bytes, based on FMT specifier.
-        """
-        assert len(fmt) == len(args)
-
-        result = []
-        for fmt_c, arg in zip(fmt, args):
-            try:
-                packable = cls._values[fmt_c]
-            except KeyError as err:
-                raise KeyError('unknown data size specified: %s' % fmt_c) from err
-
-            result += bytes_from_value(endianness=endianness,
-                                       value=arg,
-                                       char_bit=char_bit,
-                                       num_bytes=packable.size_bytes)
-
-        return result
-
-
 class Operation:
     """ CPU operation decorator """
     _opcode_counter = 0
@@ -158,14 +84,18 @@ class Operation:
         self.operation = None
 
     @property
+    def opcode_size_bytes(self) -> int:
+        return 1
+
+    @property
     def size_bytes(self) -> int:
         """ Size (in bytes) of this operation bytecode, including arguments """
-        return 1 + self.args_size
+        return self.opcode_size_bytes + self.args_size
 
     @property
     def args_size(self) -> int:
         """ Size (in bytes) of this operation arguments, without the opcode """
-        return Packer.calcsize(self.arg_def)
+        return DataType.calcsize(self.arg_def)
 
     @property
     def args_endianness(self) -> Endianness:
@@ -173,14 +103,9 @@ class Operation:
         return Endianness.Little if self.opcode % 2 else Endianness.Big
 
     def decode_args(self,
-                    char_bit: int,
-                    memory: List[int]) -> List[Any]:
-        return Packer.unpack(self.args_endianness, char_bit, self.arg_def, memory)
-
-    def encode_args(self,
-                    char_bit: int,
-                    args: List[int]) -> List[int]:
-        return Packer.pack(self.args_endianness, char_bit, self.arg_def, args)
+                    memory: Memory,
+                    addr: int) -> List[Any]:
+        return memory.get_fmt(self.arg_def, addr, self.args_endianness)
 
     def run(self, cpu: 'CPU', *args, **kwargs):
         """ Executes the wrapped operation """
@@ -220,14 +145,11 @@ class Operations:
 
     @Operation(arg_def='ra')
     def movw_m2r(cpu: 'CPU', reg: int, addr: int):
-        cpu.registers[Register(reg)] = \
-                cpu.ram.get_multibyte(addr, size_bytes=Packer.calcsize('w'))
+        cpu.registers[Register(reg)] = cpu.ram.get_fmt('w', addr)
 
     @Operation(arg_def='ar')
     def movw_r2m(cpu: 'CPU', addr: int, reg: int):
-        cpu.ram.set_multibyte(addr,
-                              cpu.registers[Register(reg)],
-                              size_bytes=Packer.calcsize('w'))
+        cpu.ram.set_fmt('w', addr, cpu.registers[Register(reg)])
 
     @Operation(arg_def='rr')
     def ldb_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
@@ -237,8 +159,7 @@ class Operations:
     @Operation(arg_def='rr')
     def ldw_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
         cpu.registers[Register(reg)] = \
-                cpu.ram.get_multibyte(cpu.registers[Register(addr_reg)],
-                                      size_bytes=Packer.calcsize('w'))
+                cpu.ram.get_fmt('w', cpu.registers[Register(addr_reg)])
         cpu._set_flags(cpu.registers[Register(dst_reg)])
 
     @Operation(arg_def='a')
@@ -251,18 +172,16 @@ class Operations:
 
     @Operation(arg_def='a')
     def call_rel(cpu: 'CPU', addr: int):
-        addr_size = Packer.calcsize('a')
+        addr_size = DataType.calcsize('a')
         cpu.registers.SP -= addr_size
-        cpu.stack.set_multibyte(cpu.registers.SP,
-                                cpu.registers.IP,
-                                size_bytes=addr_size)
-        cpu.registers.IP += addr
+        cpu.stack.set_fmt('a', cpu.registers.SP, cpu.registers.IP)
+        cpu.registers.IP += addr_size
 
     @Operation()
     def ret(cpu: 'CPU'):
-        addr_size = Packer.calcsize('a')
-        cpu.registers.IP = cpu.stack.get_multibyte(cpu.registers.SP,
-                                                   size_bytes=addr_size)
+        addr_size = DataType.calcsize('a')
+        cpu.registers.IP = cpu.stack.get_fmt('a', cpu.registers.SP)
+        cpu.registers.SP += addr_size
 
     @Operation(arg_def='rb')
     def add_b(cpu: 'CPU', reg: int, immb: int):
@@ -358,12 +277,10 @@ class CPU:
                     raise KeyError('invalid opcode: %d (%x) at address %08x'
                                    % (program[idx], program[idx], idx)) from e
 
-                op_bytes = program[idx:idx+op.size_bytes]
-                args = op.decode_args(char_bit=program.char_bit,
-                                      memory=op_bytes[1:])
+                args = op.decode_args(memory=program, addr=idx + op.opcode_size_bytes)
                 self.registers.IP = idx + op.size_bytes
 
-                logging.debug('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytes)))
+                logging.debug('%08x: %-8s %-20s %s' % (idx, op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in program[idx:idx+op.size_bytes])))
                 op.run(self, *args)
         except HaltRequested:
             pass

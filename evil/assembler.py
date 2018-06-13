@@ -5,9 +5,10 @@ import collections
 import logging
 from typing import List, NamedTuple, Sequence
 
-from evil.cpu import CPU, Packer, Register, Operation
+from evil.cpu import CPU, Register, Operation
 from evil.utils import make_bytes_dump
 from evil.endianness import Endianness, bytes_from_value
+from evil.memory import Memory, ExtendableMemory, DataType
 
 
 class Bytecode(list):
@@ -43,6 +44,12 @@ class Bytecode(list):
             self._validate(val)
         return super().__iadd__(other)
 
+    @classmethod
+    def from_memory(cls, mem: Memory):
+        bytecode = cls(mem.char_bit)
+        bytecode += mem
+        return bytecode
+
 class Assembler:
     """
     Assembly language to bytecode converter.
@@ -59,20 +66,20 @@ class Assembler:
         """ Literal value. """
         value: int
         endianness: Endianness
-        size_bytes: int
+        datatype: DataType
 
     class RegisterRef(NamedTuple):
         """ CPU register reference. """
         reg: Register
         endianness: Endianness
-        size_bytes: int = Packer.calcsize('r')
+        datatype: DataType = DataType.from_fmt('r')
 
     class LabelRef(NamedTuple):
         """ Named label reference. """
         label: str
         endianness: Endianness
         relative: bool
-        size_bytes: int = Packer.calcsize('a')
+        datatype: DataType = DataType.from_fmt('a')
 
     def __init__(self, char_bit: int):
         self._char_bit = char_bit
@@ -92,14 +99,14 @@ class Assembler:
     @staticmethod
     def _parse_immediate(text: str,
                          operation: Operation,
-                         size_bytes: int) -> 'Assembler.Immediate':
+                         datatype: DataType) -> 'Assembler.Immediate':
         if len(text) == 3 and text[0] == "'" == text[-1]:
             value = ord(text[1])
         else:
             value = int(text, 0)
 
         return Assembler.Immediate(value=value,
-                                   size_bytes=size_bytes,
+                                   datatype=datatype,
                                    endianness=operation.args_endianness)
 
     def _parse_arg(self,
@@ -115,9 +122,8 @@ class Assembler:
         elif arg_type in ('b', 'w', 'a'):
             try:
                 # literal value
-                return self._parse_immediate(text,
-                                             operation,
-                                             Packer.calcsize(arg_type))
+                return self._parse_immediate(text, operation,
+                                             DataType.from_fmt(arg_type))
             except ValueError:
                 # label
                 return Assembler.LabelRef(label=text,
@@ -150,29 +156,13 @@ class Assembler:
         self._intermediate += op_ir
         self._curr_offset += operation.size_bytes
 
-    def _compile_immediate(self, imm: 'Assembler.Immediate') -> List[int]:
-        return bytes_from_value(endianness=imm.endianness,
-                                value=imm.value,
-                                char_bit=self._char_bit,
-                                num_bytes=imm.size_bytes)
-
-    def _compile_register_ref(self, reg: 'Assembler.RegisterRef') -> List[int]:
-        return bytes_from_value(endianness=reg.endianness,
-                                value=reg.reg.value,
-                                char_bit=self._char_bit,
-                                num_bytes=reg.size_bytes)
-
-    def _compile_label_ref(self,
-                           label_ref: LabelRef,
-                           curr_ip: int) -> List[int]:
+    def _label_ref_to_address(self,
+                              label_ref: LabelRef,
+                              curr_ip: int) -> List[int]:
         target_addr = self._labels[label_ref.label]
         if label_ref.relative:
             target_addr -= curr_ip
-
-        return bytes_from_value(endianness=label_ref.endianness,
-                                value=target_addr,
-                                char_bit=self._char_bit,
-                                num_bytes=label_ref.size_bytes)
+        return target_addr
 
     def _compile(self) -> Bytecode:
         """
@@ -180,22 +170,30 @@ class Assembler:
         """
 
         curr_ip = 0 # instruction pointer value at the point of running current op
-        bytecode = Bytecode(self._char_bit)
+        mem = ExtendableMemory(self._char_bit)
 
         for elem in self._intermediate:
             if isinstance(elem, Operation):
-                curr_ip = len(bytecode) + elem.size_bytes
-                bytecode.append(elem.opcode)
+                curr_ip = len(mem) + elem.size_bytes
+                mem.append(elem.opcode,
+                           DataType.from_fmt('b'),
+                           Endianness.Little)
             elif isinstance(elem, Assembler.Immediate):
-                bytecode += self._compile_immediate(elem)
+                mem.append(elem.value,
+                           elem.datatype,
+                           elem.endianness)
             elif isinstance(elem, Assembler.RegisterRef):
-                bytecode += self._compile_register_ref(elem)
+                mem.append(elem.reg.value,
+                           elem.datatype,
+                           elem.endianness)
             elif isinstance(elem, Assembler.LabelRef):
-                bytecode += self._compile_label_ref(elem, curr_ip)
+                mem.append(self._label_ref_to_address(elem, curr_ip),
+                           elem.datatype,
+                           elem.endianness)
             else:
                 raise AssertionError('unhandled IR type: %s' % type(elem).__name__)
 
-        return bytecode
+        return Bytecode.from_memory(mem)
 
     def assemble(self,
                  source: str) -> Bytecode:
