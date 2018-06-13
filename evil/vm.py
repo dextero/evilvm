@@ -11,11 +11,13 @@ from evil.assembler import Assembler
 
 logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
-asm = Assembler(char_bit=9)
+CHAR_BIT=9
 
-data = Memory(char_bit=9, alignment=7, value=b'Hello World!', size=128)
-stack = Memory(char_bit=9, alignment=5, size=5*32)
-program = Memory(char_bit=9, alignment=1, value=asm.assemble(sys.stdin.read()))
+asm = Assembler(char_bit=CHAR_BIT)
+
+data = Memory(char_bit=CHAR_BIT, alignment=7, value=b'Hello World!', size=128)
+stack = Memory(char_bit=CHAR_BIT, alignment=5, size=5*32)
+program = Memory(char_bit=CHAR_BIT, alignment=1, value=asm.assemble(sys.stdin.read()))
 
 try:
     cpu = CPU()

@@ -1,51 +1,114 @@
+"""
+Assembly -> bytecode compiler and utilities.
+"""
 import collections
 import logging
-from typing import List
+from typing import List, NamedTuple
 
 from evil.cpu import CPU, Packer, Register, Operation
 from evil.utils import make_bytes_dump
-from evil.memory import ExtendableMemory
+from evil.endianness import Endianness, bytes_from_value
+
 
 class Bytecode(list):
+    """
+    A list of opcodes that ensures all elements can be encoded on given number
+    of bits.
+    """
     def __init__(self, char_bit: int):
         super().__init__()
         self._char_bit = char_bit
 
     @property
     def char_bit(self):
+        """
+        Number of bits per element. No element may be >= 2**char_bit.
+        """
         return self._char_bit
 
+    def __setitem__(self, idx: int, val: int):
+        assert isinstance(val, int)
+        assert 0 <= val < 2**self.char_bit
+        super().__setitem__(idx, val)
 
 class Assembler:
+    """
+    Assembly language to bytecode converter.
+    """
+
+    class Immediate(NamedTuple):
+        value: int
+        endianness: Endianness
+        size_bytes: int
+
+    class RegisterRef(NamedTuple):
+        reg: Register
+        endianness: Endianness
+        size_bytes: int = Packer.calcsize('r')
+
+    class LabelRef(NamedTuple):
+        label: str
+        endianness: Endianness
+        relative: bool
+        size_bytes: int = Packer.calcsize('a')
+
     def __init__(self, char_bit: int):
         self._char_bit = char_bit
-        self.reset()
+        self._reset()
 
-    def reset(self):
+    def _reset(self):
+        """
+        Clears the assembler state.
+        """
         self._labels = {}
         self._label_refs = collections.defaultdict(list)
-        self._bytecode = Bytecode(self._char_bit)
+        # intermediate representation - list of:
+        # Operation, Immediate, RegisterRef, LabelRef
+        self._intermediate = []
+        self._curr_offset = 0
 
-    def _resolve_arg(self,
-                     text: str,
-                     op: Operation,
-                     op_offset: int,
-                     arg_offset: int): # relative to op_offset
-        try:
-            return Register.by_name(text.upper()).value
-        except KeyError:
-            pass
+    def _parse_immediate(self,
+                         text: str,
+                         operation: Operation,
+                         size_bytes: int) -> 'Assembler.Immediate':
+        if len(text) == 3 and text[0] == "'" == text[-1]:
+            value = ord(text[1])
+        else:
+            value = int(text, 0)
 
-        try:
-            if text[0] == "'" and text[-1] == "'":
-                return ord(text[1:-1])
-            else:
-                return int(text, 0)
-        except ValueError:
-            self._label_refs[text].append((op, op_offset, arg_offset))
-            return 0
+        return Assembler.Immediate(value=value,
+                                   size_bytes=size_bytes,
+                                   endianness=operation.args_endianness)
+
+    def _parse_arg(self,
+                   text: str,
+                   operation: Operation,
+                   arg_type: str):
+        """
+        Parses an instruction argument, returning its numeric value.
+        """
+        if arg_type == 'r':
+            return Assembler.RegisterRef(Register.by_name(text.upper()),
+                                         endianness=operation.args_endianness)
+        elif arg_type in ('b', 'w', 'a'):
+            try:
+                # literal value
+                return self._parse_immediate(text,
+                                             operation,
+                                             Packer.calcsize(arg_type))
+            except ValueError:
+                # label
+                return Assembler.LabelRef(label=text,
+                                          endianness=operation.args_endianness,
+                                          relative=operation.mnemonic.endswith('.rel'))
+        else:
+            raise ValueError('unsupported argument type: %s' % arg_type)
 
     def _append_instruction(self, line: str):
+        """
+        Parses LINE as an instruction and appends its intermediate
+        representation to self._intermediate.
+        """
         if ' ' in line:
             mnemonic, argline = line.split(' ', maxsplit=1)
         else:
@@ -53,61 +116,85 @@ class Assembler:
             argline = ''
 
         try:
-            op = CPU.OPERATIONS_BY_MNEMONIC[mnemonic]
+            operation = CPU.OPERATIONS_BY_MNEMONIC[mnemonic]
         except KeyError as e:
             raise KeyError('invalid opcode: %s' % mnemonic) from e
 
-        op_bytecode = [op.opcode]
-        arg_off = len(op_bytecode)
+        op_ir = [operation]
         args = []
         for idx, arg in enumerate(argline.split()):
             arg = arg.strip(',') # TODO: UGLYYY
-            args.append(self._resolve_arg(arg, op, len(self._bytecode), arg_off))
-            arg_off += Packer.calcsize(op.arg_def[idx])
+            op_ir.append(self._parse_arg(arg, operation, operation.arg_def[idx]))
 
-        op_bytecode += op.encode_args(char_bit=self._char_bit, args=args)
-        self._bytecode += op_bytecode
+        self._intermediate += op_ir
+        self._curr_offset += operation.size_bytes
 
-        logging.debug('% 9s %s' % ('', line))
-        logging.debug('%08x: %-8s %-20s %s' % (len(self._bytecode), op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytecode)))
+    def _compile_immediate(self, imm: 'Assembler.Immediate') -> List[int]:
+        return bytes_from_value(endianness=imm.endianness,
+                                value=imm.value,
+                                char_bit=self._char_bit,
+                                num_bytes=imm.size_bytes)
 
-    def _fill_labels(self):
-        for label, refs in self._label_refs.items():
-            for op, op_address, arg_offset in refs:
-                target_addr = self._labels[label]
-                fill_addr = op_address + arg_offset
+    def _compile_register_ref(self, reg: 'Assembler.RegisterRef') -> List[int]:
+        return bytes_from_value(endianness=reg.endianness,
+                                value=reg.reg.value,
+                                char_bit=self._char_bit,
+                                num_bytes=reg.size_bytes)
 
-                needs_relative_addr = op.mnemonic.endswith('.rel')
-                if needs_relative_addr:
-                    # At the point of executing OP, IP points to the next instruction
-                    target_addr = target_addr - (op_address + op.size_bytes)
+    def _compile_label_ref(self,
+                           label_ref: LabelRef,
+                           curr_ip: int) -> List[int]:
+        target_addr = self._labels[label_ref.label]
+        if label_ref.relative:
+            target_addr -= curr_ip
 
-                logging.debug('filling address @ %#010x with %#010x (%s, %s)'
-                              % (fill_addr, target_addr, label, 'relative' if needs_relative_addr else 'absolute'))
+        return bytes_from_value(endianness=label_ref.endianness,
+                                value=target_addr,
+                                char_bit=self._char_bit,
+                                num_bytes=label_ref.size_bytes)
 
-                packed_addr = Packer.pack(endianness=op.args_endianness,
-                                          char_bit=self._char_bit,
-                                          fmt='a',
-                                          args=[target_addr])
-                self._bytecode[fill_addr:fill_addr+Packer.calcsize('a')] = packed_addr
+    def _compile(self) -> Bytecode:
+        """
+        Converts intermediate representation to bytecode.
+        """
+
+        curr_ip = 0 # instruction pointer value at the point of running current op
+        curr_op = None
+        bytecode = Bytecode(self._char_bit)
+
+        for elem in self._intermediate:
+            if isinstance(elem, Operation):
+                curr_op = elem
+                curr_ip = len(bytecode) + curr_op.size_bytes
+                bytecode.append(curr_op.opcode)
+            elif isinstance(elem, Assembler.Immediate):
+                bytecode += self._compile_immediate(elem)
+            elif isinstance(elem, Assembler.RegisterRef):
+                bytecode += self._compile_register_ref(elem)
+            elif isinstance(elem, Assembler.LabelRef):
+                bytecode += self._compile_label_ref(elem, curr_ip)
+            else:
+                raise AssertionError('unhandled IR type: %s' % type(elem).__name__)
+
+        return bytecode
 
     def assemble(self,
                  source: str) -> Bytecode:
-        self.reset()
+        self._reset()
 
         instructions = (l.strip() for l in source.strip().split('\n'))
         instructions = (i for i in instructions if i)
         for instr in instructions:
             if instr.endswith(':'):
-                self._labels[instr[:-1]] = len(self._bytecode)
+                self._labels[instr[:-1]] = self._curr_offset
             else:
                 self._append_instruction(instr)
 
-        self._fill_labels()
+        bytecode = self._compile()
 
         logging.debug(source)
-        logging.debug('bytecode:\n' + make_bytes_dump(self._bytecode,
-                                                      self._bytecode.char_bit,
+        logging.debug('bytecode:\n' + make_bytes_dump(bytecode,
+                                                      bytecode.char_bit,
                                                       alignment=4))
 
-        return self._bytecode
+        return bytecode
