@@ -13,7 +13,7 @@ Usage
     python3 -m evil.vm asm/hello.asm
 
     # make the VM use some more familiar settings
-    python3 -m evil.vm ./hello.asm --char-bit 8 --word-size 4 --addr-size 4 --map-memory ram=program stack=program
+    python3 -m evil.vm asm/hello.asm --char-bit 8 --word-size 4 --addr-size 4 --map-memory ram=program stack=program
 
     # display help message
     python3 -m evil.vm --help
