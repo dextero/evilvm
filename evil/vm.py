@@ -14,7 +14,12 @@ logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
 MEMORY_BLOCKS = {}
 
-parser = argparse.ArgumentParser('Run an Evil VM')
+parser = argparse.ArgumentParser(description='''
+Run a program within the Evil VM.
+
+Recognized environment variables:
+- LOGLEVEL - log level to use. Default is INFO; DEBUG may print some interesting stuff.
+''')
 parser.add_argument(dest='source',
                     nargs=1,
                     default='/dev/stdin',
