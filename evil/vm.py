@@ -89,6 +89,10 @@ class Memory:
         else:
             self._memory = ([0] * size)
             if value:
+                for idx, byte in enumerate(value):
+                    if byte >= 2**char_bit:
+                        raise ValueError('byte %d at offset %d is larger than the limit imposed '
+                                         'by given char_bit = %d' % (byte, idx, char_bit))
                 self._memory[:len(value)] = value
 
     @property
