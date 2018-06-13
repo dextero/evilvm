@@ -415,4 +415,5 @@ class CPU:
                 '--- RAM ---\n'
                 '%s\n'
                 '--- STACK ---\n'
-                '%s\n' % (self.registers, self.program, self.ram, self.stack))
+                '%s\n' % (self.registers, self.program, self.ram,
+                          self.stack.make_dump(DataType.from_fmt('a').alignment)))

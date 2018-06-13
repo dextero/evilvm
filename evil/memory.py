@@ -129,10 +129,11 @@ class Memory:
         datatype = DataType.from_fmt(fmt)
         self._set_datatype(addr, arg, datatype, endianness)
 
+    def make_dump(self, alignment):
+        return make_bytes_dump(self._memory, self.char_bit, alignment)
+
     def __str__(self):
-        return make_bytes_dump(self._memory,
-                               self.char_bit,
-                               DataType.from_fmt('w').alignment)
+        return self.make_dump(DataType.from_fmt('w').alignment)
 
 
 class UnalignedMemoryAccessError(Exception):
