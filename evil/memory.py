@@ -87,3 +87,26 @@ class Memory:
         return make_bytes_dump(self._memory, self.char_bit, self.alignment)
 
 
+
+class ExtendableMemory(Memory):
+    def __init__(self, char_bit: int):
+        super().__init__(self,
+                         char_bit=char_bit,
+                         alignment=1,
+                         value=[])
+
+    def _resize_if_required(self, desired_size: int):
+        if len(self) < desired_size:
+            self._memory += [0] * (desired_size - len(self))
+
+    def __setitem__(self, addr: int, val: int):
+        self._resize_if_required(addr + 1)
+        super().__setitem__(addr, val)
+
+    def set_multibyte(self,
+                      addr: int,
+                      value: int,
+                      size_bytes: int,
+                      endianness: Endianness = Endianness.Big):
+        self._resize_if_required(addr + size_bytes)
+        super().set_multibyte(addr, value, size_bytes, endianness)
