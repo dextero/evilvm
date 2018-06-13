@@ -35,7 +35,7 @@ Features
   * code (read-only)
   * call stack (only accessible through call/ret instructions)
 
-* Endianness used for encoding opcode arguments depends on opcode parity!
+* Endianness used for encoding operation arguments depends on opcode parity!
 
 
 Registers
