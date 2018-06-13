@@ -41,3 +41,34 @@ def make_bytes_dump(data: List[int],
     lines_with_offsets = ('%08x  %s' % (idx * words_per_line * alignment, line)
                           for idx, line in enumerate(lines))
     return '\n'.join(lines_with_offsets)
+
+def tokenize(text: str) -> List[str]:
+    tokens = []
+
+    in_quote = None
+    escape = False
+    escape_hex = None
+    curr_token = ''
+    for c in text:
+        if escape:
+            escape = False
+            if c not in ('"', "'"):
+                curr_token += '\\'
+        elif c == '\\':
+            escape = True
+            continue
+        elif c == '"' and in_quote in (None, '"'):
+            in_quote = not in_quote
+        elif c == "'" and in_quote in (None, "'"):
+            in_quote = not in_quote
+        elif not in_quote and c.isspace():
+            if curr_token:
+                tokens.append(curr_token)
+            curr_token = ''
+            continue
+
+        curr_token += c
+
+    if curr_token:
+        tokens.append(curr_token)
+    return tokens

@@ -6,7 +6,7 @@ import logging
 from typing import List, NamedTuple, Sequence
 
 from evil.cpu import CPU, Register, Operation
-from evil.utils import make_bytes_dump
+from evil.utils import make_bytes_dump, tokenize
 from evil.endianness import Endianness, bytes_from_value
 from evil.memory import Memory, ExtendableMemory, DataType
 
@@ -140,26 +140,44 @@ class Assembler:
         else:
             raise ValueError('unsupported argument type: %s' % arg_type)
 
+    def _make_db(self, line: str, args: List[str]):
+        data = []
+
+        for arg in args:
+            if arg[0] == "'" == arg[-1]:
+                data.append(ord(arg[1:-1]))
+            elif arg[0] == '"' == arg[-1]:
+                data += eval(arg).encode('utf-8')
+            else:
+                data.append(int(arg, 0))
+
+        elements = [Assembler.Immediate(v, Endianness.Big, DataType.from_fmt('b'))
+                    for v in data]
+        return Assembler.LineIR(line, elements, bytecode=[])
+
     def _append_instruction(self, line: str):
         """
         Parses LINE as an instruction and appends its intermediate
         representation to self._intermediate.
         """
         stripped_line = line.strip()
-        if stripped_line.endswith(':'):
-            self._labels[stripped_line[:-1]] = self._curr_offset
-            self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
-            return
-
         if not stripped_line:
             self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
             return
 
-        if ' ' in stripped_line:
-            mnemonic, argline = stripped_line.split(' ', maxsplit=1)
-        else:
-            mnemonic = stripped_line
-            argline = ''
+        mnemonic, *args = tokenize(stripped_line)
+
+        if not args and mnemonic.endswith(':'):
+            self._labels[mnemonic[:-1]] = self._curr_offset
+            self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
+            return
+
+        SPECIAL_OPS = {
+            'db': self._make_db,
+        }
+        if mnemonic in SPECIAL_OPS:
+            self._intermediate.append(SPECIAL_OPS[mnemonic](line, args))
+            return
 
         try:
             operation = CPU.OPERATIONS_BY_MNEMONIC[mnemonic]
@@ -167,7 +185,7 @@ class Assembler:
             raise KeyError('invalid opcode: %s' % mnemonic) from err
 
         op_ir = [operation]
-        for idx, arg in enumerate(argline.split()):
+        for idx, arg in enumerate(args):
             arg = arg.strip(',') # TODO: UGLYYY
             op_ir.append(self._parse_arg(arg, operation, operation.arg_def[idx]))
 
