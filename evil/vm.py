@@ -8,24 +8,7 @@ import sys
 import collections
 import os
 
-
-def group(seq, n, fill=None):
-    if fill is not None:
-        seq = list(seq) + [fill] * (n - 1)
-    return zip(*[iter(seq)] * n)
-
-def make_bytes_dump(data: typing.List[int],
-                    char_bit: int,
-                    alignment: int):
-    byte_str_len = len('%x' % (2**char_bit - 1))
-    words_per_line = 70 // ((alignment * (byte_str_len + 1)) + 1)
-    byte_fmt = '%%0%dx' % byte_str_len
-
-    word_groups = group(data, alignment, fill=0)
-    line_groups = group(word_groups, words_per_line, fill=tuple([0] * alignment))
-
-    lines = ('  '.join(' '.join((byte_fmt % b) for b in w) for w in wg) for wg in line_groups)
-    return '\n'.join('%08x  %s' % (idx * words_per_line * alignment, line) for idx, line in enumerate(lines))
+from .utils import group, make_bytes_dump
 
 
 class Endianness(enum.Enum):
@@ -600,23 +583,7 @@ logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
 data = Memory(char_bit=9, alignment=7, value=b'Hello World!', size=128)
 stack = Memory(char_bit=9, alignment=5, size=5*32)
-program = Memory(char_bit=9, alignment=1, value=asm_compile("""
-    movb.i2r c, 0
-    call.rel print
-    halt
-
-print:
-    ldb.r a, c
-    je.rel print_done
-    out
-    add.b c, 1
-    jmp.rel print
- print_done:
-    ret
-
-""", char_bit=9))
-
-# sys.exit(1)
+program = Memory(char_bit=9, alignment=1, value=asm_compile(sys.stdin.read(), char_bit=9))
 
 try:
     cpu = CPU()
