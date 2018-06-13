@@ -8,72 +8,8 @@ import sys
 import collections
 import os
 
-from .utils import group, make_bytes_dump
-
-
-class Endianness(enum.Enum):
-    Little = enum.auto()
-    Big = enum.auto()
-    PDP = enum.auto()
-
-def bytes_from_value(endianness: Endianness,
-                     value: int,
-                     char_bit: int,
-                     num_bytes: int) -> typing.List[int]:
-    if endianness == Endianness.PDP and num_bytes % 2 != 0:
-        raise ValueError('unable to encode PDP endian value on odd number of bytes')
-    assert value < 2**(char_bit * num_bytes)
-
-    negative = False
-    if value < 0:
-        negative = True
-        value = -value
-
-    result = [0] * num_bytes
-    idx = 0
-    while value > 0:
-        result[idx] = value % 2**char_bit
-        value //= 2**char_bit
-        idx += 1
-
-    if negative:
-        msb = (1 << (char_bit - 1))
-        result[-1] |= msb
-
-    if endianness == Endianness.Little:
-        return result
-    elif endianness == Endianness.Big:
-        return list(reversed(result))
-    elif endianness == Endianness.PDP:
-        return list(reduce(list.__add__, (reversed(g) for g in group(result, 2))))
-
-
-def value_from_bytes(endianness: Endianness,
-                     val_bytes: typing.List[int],
-                     char_bit: int) -> int:
-    if endianness == Endianness.PDP and len(val_bytes) % 2 != 0:
-        raise ValueError('unable to decode PDP endian value from odd number of bytes')
-
-    if endianness == Endianness.Little:
-        val_le = val_bytes
-    elif endianness == Endianness.Big:
-        val_le = list(reversed(val_bytes))
-    elif endianness == Endianness.PDP:
-        val_le = reduce(list.__add__, (reversed(g) for g in group(val_bytes, 2)))
-
-    negative = False
-    msb = (1 << (char_bit - 1))
-    if val_le[-1] & msb:
-        negative = True
-        val_le[-1] &= ~msb
-
-    val = 0
-    for b in reversed(val_le):
-        assert b < 2**char_bit
-        val *= 2**char_bit
-        val += b
-
-    return -val if negative else val
+from evil.utils import make_bytes_dump
+from evil.endianness import Endianness, bytes_from_value, value_from_bytes
 
 
 class Register(enum.Enum):
