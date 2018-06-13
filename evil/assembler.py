@@ -3,7 +3,7 @@ Assembly -> bytecode compiler and utilities.
 """
 import collections
 import logging
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Sequence
 
 from evil.cpu import CPU, Packer, Register, Operation
 from evil.utils import make_bytes_dump
@@ -26,10 +26,22 @@ class Bytecode(list):
         """
         return self._char_bit
 
-    def __setitem__(self, idx: int, val: int):
+    def _validate(self, val: int):
         assert isinstance(val, int)
         assert 0 <= val < 2**self.char_bit
-        super().__setitem__(idx, val)
+
+    def __setitem__(self, idx: int, val: int):
+        self._validate(val)
+        return super().__setitem__(idx, val)
+
+    def append(self, val: int):
+        self._validate(val)
+        return super().append(val)
+
+    def __iadd__(self, other: Sequence[int]):
+        for val in other:
+            self._validate(val)
+        return super().__iadd__(other)
 
 class Assembler:
     """
