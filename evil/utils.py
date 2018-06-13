@@ -2,6 +2,7 @@
 Utility functions that do not fit elsewhere.
 """
 
+import string
 from typing import Sequence, Optional, List, T
 
 def group(seq: Sequence[T],
@@ -31,15 +32,31 @@ def make_bytes_dump(data: List[int],
     * Each line contains as much groups as possible without exceeding LINE_LENGTH.
     """
     byte_str_len = len('%x' % (2**char_bit - 1))
-    words_per_line = (line_length - 10) // ((alignment * (byte_str_len + 1)) + 1)
+    words_per_line = ((line_length
+                       - 10 # 10 bytes for address on the left
+                       - 2) # 2 bytes for space between hex digits and right column
+                      // ((alignment * (byte_str_len # byte size
+                                        + 1 # 1 space between each byte
+                                        + 1)) # 1 character on the right column per byte
+                           + 1 # 1 extra space between words in hex dump
+                           + 1)) # 1 more in the right column
     byte_fmt = '%%0%dx' % byte_str_len
 
     word_groups = group(data, alignment, fill=0)
-    line_groups = group(word_groups, words_per_line, fill=tuple([0] * alignment))
+    line_groups = list(group(word_groups, words_per_line, fill=tuple([0] * alignment)))
+
+    def to_printable(c: int):
+        if (c < 128
+                and chr(c) in string.printable
+                and chr(c) not in string.whitespace):
+            return chr(c)
+        return '.'
 
     lines = ('  '.join(' '.join((byte_fmt % b) for b in w) for w in wg) for wg in line_groups)
-    lines_with_offsets = ('%08x  %s' % (idx * words_per_line * alignment, line)
-                          for idx, line in enumerate(lines))
+    printable_lines = (' '.join(''.join(to_printable(b) for b in w) for w in wg) for wg in line_groups)
+
+    lines_with_offsets = ('%08x  %s  %s' % (idx * words_per_line * alignment, line, printable)
+                          for idx, (line, printable) in enumerate(zip(lines, printable_lines)))
     return '\n'.join(lines_with_offsets)
 
 def tokenize(text: str) -> List[str]:
