@@ -180,14 +180,12 @@ class Assembler:
         """
 
         curr_ip = 0 # instruction pointer value at the point of running current op
-        curr_op = None
         bytecode = Bytecode(self._char_bit)
 
         for elem in self._intermediate:
             if isinstance(elem, Operation):
-                curr_op = elem
-                curr_ip = len(bytecode) + curr_op.size_bytes
-                bytecode.append(curr_op.opcode)
+                curr_ip = len(bytecode) + elem.size_bytes
+                bytecode.append(elem.opcode)
             elif isinstance(elem, Assembler.Immediate):
                 bytecode += self._compile_immediate(elem)
             elif isinstance(elem, Assembler.RegisterRef):
