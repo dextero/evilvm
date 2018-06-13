@@ -25,23 +25,23 @@ Usage
 Features
 ========
 
-* built-in assembler
-* configurable number of bits per byte - by default 9
-* 7 9bytes per machine word
-* 5-9byte addresses
-* 3 separate address spaces:
+* Built-in assembler!
+* 9 bits per byte! (configurable)
+* 7 bytes per machine word! (configurable)
+* 5 bytes per memory address! (configurable)
+* 3 logically separate address spaces (but nothing prevents one from mapping all to a single memory area):
+
   * RAM area
   * code (read-only)
   * call stack (only accessible through call/ret instructions)
 
-* Endianness used for encoding opcode arguments depends on opcode parity
+* Endianness used for encoding opcode arguments depends on opcode parity!
 
-* Registers:
-  * A - accumulator
-  * C - counter
-  * F - flag register
-  * IP - instruction pointer
-  * SP - return address stack pointer
+
+Registers
+=========
+
+See ``Register`` class in ``evil/cpu.py``.
 
 
 Instruction set
