@@ -12,6 +12,9 @@ Usage
     # run a simple Hello World
     python3 -m evil asm/hello.asm
 
+    # also print some fancy logs
+    LOGLEVEL=DEBUG python3 -m evil asm/hello.asm
+
     # make the VM use some more familiar settings
     python3 -m evil asm/hello.asm --char-bit 8 --word-size 4 --addr-size 4 --map-memory ram=program stack=program
 
