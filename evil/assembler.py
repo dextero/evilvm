@@ -263,7 +263,7 @@ class Assembler:
     def assemble_to_memory(self, source: str) -> Memory:
         self._reset()
 
-        instructions = source.strip().split('\n')
+        instructions = source.split('\n')
         for instr in instructions:
             self._append_instruction(instr)
 
