@@ -358,7 +358,7 @@ class CPU:
     def __init__(self):
         self.registers = RegisterSet()
 
-        self.flash = None
+        self.program = None
         self.ram = None
         self.stack = None
 
