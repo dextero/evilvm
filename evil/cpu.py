@@ -105,7 +105,7 @@ class Operation:
     def decode_args(self,
                     memory: Memory,
                     addr: int) -> List[Any]:
-        return memory.get_fmt(self.arg_def, addr, self.args_endianness)
+        return memory.get_fmt_multiple(self.arg_def, addr, self.args_endianness)
 
     def run(self, cpu: 'CPU', *args, **kwargs):
         """ Executes the wrapped operation """

@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Any, Union
+from typing import List, NamedTuple, Any, Tuple
 
 from evil.utils import make_bytes_dump
 from evil.endianness import Endianness, bytes_from_value, value_from_bytes
@@ -95,35 +95,39 @@ class Memory:
                                  char_bit=self.char_bit,
                                  num_bytes=datatype.size_bytes)
 
+    def _get_fmt_impl(self,
+                      fmt_c: str,
+                      addr: int,
+                      endianness: Endianness = Endianness.Big) -> Tuple[int, Any]:
+        assert len(fmt_c) == 1
+        datatype = DataType.from_fmt(fmt_c)
+        return datatype.size_bytes, self._get_datatype(addr, datatype, endianness)
+
     def get_fmt(self,
                 fmt: str,
                 addr: int,
                 endianness: Endianness = Endianness.Big) -> List[Any]:
-        """
-        Decodes arguments from the memory starting at ADDR, based on FMT specifier.
-        """
+        return self._get_fmt_impl(fmt, addr, endianness)[1]
+
+    def get_fmt_multiple(self,
+                         fmt: str,
+                         addr: int,
+                         endianness: Endianness = Endianness.Big) -> Any:
         result = []
         for fmt_c in fmt:
-            datatype = DataType.from_fmt(fmt_c)
-            result.append(self._get_datatype(addr, datatype, endianness))
-            addr += datatype.size_bytes
-
-        return result if len(result) != 1 else result[0]
+            size, elem = self._get_fmt_impl(fmt_c, addr, endianness)
+            addr += size
+            result.append(elem)
+        return result
 
     def set_fmt(self,
                 fmt: str,
                 addr: int,
-                args: Union[int, List[int]],
+                arg: int,
                 endianness: Endianness = Endianness.Big):
-        if isinstance(args, int):
-            args = [args]
-
-        assert len(fmt) == len(args)
-
-        for fmt_c, arg in zip(fmt, args):
-            datatype = DataType.from_fmt(fmt_c)
-            self._set_datatype(addr, arg, datatype, endianness)
-            addr += datatype.size_bytes
+        assert len(fmt) == 1
+        datatype = DataType.from_fmt(fmt)
+        self._set_datatype(addr, arg, datatype, endianness)
 
     def __str__(self):
         return make_bytes_dump(self._memory,
