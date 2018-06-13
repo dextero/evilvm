@@ -34,19 +34,29 @@ class Bytecode(list):
 class Assembler:
     """
     Assembly language to bytecode converter.
+
+    This is a two-pass process:
+    * First pass turns source into intermediate representation, i.e. a list of
+      Operation or other classes defined below. During this pass, all labels
+      and its positions are discovered and noted in self._labels.
+    * Second pass converts intermediate representation into final bytecode,
+      filling in label values if necessary.
     """
 
     class Immediate(NamedTuple):
+        """ Literal value. """
         value: int
         endianness: Endianness
         size_bytes: int
 
     class RegisterRef(NamedTuple):
+        """ CPU register reference. """
         reg: Register
         endianness: Endianness
         size_bytes: int = Packer.calcsize('r')
 
     class LabelRef(NamedTuple):
+        """ Named label reference. """
         label: str
         endianness: Endianness
         relative: bool
@@ -67,8 +77,8 @@ class Assembler:
         self._intermediate = []
         self._curr_offset = 0
 
-    def _parse_immediate(self,
-                         text: str,
+    @staticmethod
+    def _parse_immediate(text: str,
                          operation: Operation,
                          size_bytes: int) -> 'Assembler.Immediate':
         if len(text) == 3 and text[0] == "'" == text[-1]:
@@ -117,11 +127,10 @@ class Assembler:
 
         try:
             operation = CPU.OPERATIONS_BY_MNEMONIC[mnemonic]
-        except KeyError as e:
-            raise KeyError('invalid opcode: %s' % mnemonic) from e
+        except KeyError as err:
+            raise KeyError('invalid opcode: %s' % mnemonic) from err
 
         op_ir = [operation]
-        args = []
         for idx, arg in enumerate(argline.split()):
             arg = arg.strip(',') # TODO: UGLYYY
             op_ir.append(self._parse_arg(arg, operation, operation.arg_def[idx]))
@@ -180,6 +189,9 @@ class Assembler:
 
     def assemble(self,
                  source: str) -> Bytecode:
+        """
+        Turns SOURCE into compiled form.
+        """
         self._reset()
 
         instructions = (l.strip() for l in source.strip().split('\n'))
@@ -193,8 +205,7 @@ class Assembler:
         bytecode = self._compile()
 
         logging.debug(source)
-        logging.debug('bytecode:\n' + make_bytes_dump(bytecode,
-                                                      bytecode.char_bit,
-                                                      alignment=4))
+        logging.debug('bytecode:\n%s',
+                      make_bytes_dump(bytecode, bytecode.char_bit, alignment=4))
 
         return bytecode
