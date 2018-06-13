@@ -10,6 +10,7 @@ import os
 
 from evil.utils import make_bytes_dump
 from evil.endianness import Endianness, bytes_from_value, value_from_bytes
+from evil.memory import Memory
 
 
 class Register(enum.Enum):
@@ -68,87 +69,6 @@ class RegisterSet:
 
     def __str__(self) -> str:
         return '\n'.join('%s = %d (%x)' % (n, v, v) for n, v in self._registers.items())
-
-
-class UnalignedMemoryAccessError(Exception):
-    def __init__(self, address: int, alignment: int):
-        super().__init__('Address %#x is not %d-byte aligned' % (address, alignment))
-
-
-class Memory:
-    def __init__(self,
-                 size: int = None,
-                 value: typing.List[int] = None,
-                 char_bit: int = 8,
-                 alignment: int = 1):
-        self._char_bit = char_bit
-        self._alignment = alignment
-
-        if not size:
-            self._memory = value
-        else:
-            self._memory = ([0] * size)
-            if value:
-                for idx, byte in enumerate(value):
-                    if byte >= 2**char_bit:
-                        raise ValueError('byte %d at offset %d is larger than the limit imposed '
-                                         'by given char_bit = %d' % (byte, idx, char_bit))
-                self._memory[:len(value)] = value
-
-    @property
-    def char_bit(self) -> int:
-        return self._char_bit
-
-    @property
-    def alignment(self) -> int:
-        return self._alignment
-
-    def __len__(self):
-        return len(self._memory)
-
-    def __getitem__(self,
-                    addr: int) -> int:
-        try:
-            return self._memory[addr]
-        except IndexError as e:
-            raise IndexError('invalid memory access at address %d' % addr) from e
-
-    def __setitem__(self,
-                    addr: int,
-                    val: int):
-        assert val < 2**self.char_bit
-        try:
-            self._memory[addr] = val
-        except IndexError as e:
-            raise IndexError('invalid memory access at address %d' % addr) from e
-
-    def get_multibyte(self,
-                      addr: int,
-                      size_bytes: int,
-                      endianness: Endianness = Endianness.Big) -> int:
-        if addr % self.alignment != 0:
-            raise UnalignedMemoryAccessError(address=addr, alignment=self.alignment)
-
-        return value_from_bytes(endianness=endianness,
-                                val_bytes=self._memory[addr:addr+size_bytes],
-                                char_bit=self.char_bit)
-
-    def set_multibyte(self,
-                      addr: int,
-                      value: int,
-                      size_bytes: int,
-                      endianness: Endianness = Endianness.Big):
-        if addr % self.alignment != 0:
-            raise UnalignedMemoryAccessError(address=addr, alignment=self.alignment)
-        assert value < 2**(size_bytes * self.char_bit)
-
-        self._memory[addr:addr+size_bytes] = bytes_from_value(endianness=endianness,
-                                                              value=value,
-                                                              char_bit=self.char_bit,
-                                                              num_bytes=size_bytes)
-
-    def __str__(self):
-        return make_bytes_dump(self._memory, self.char_bit, self.alignment)
 
 
 class Packer:
@@ -440,84 +360,6 @@ class CPU:
                 '--- STACK ---\n'
                 '%s\n' % (self.registers, self.program, self.ram, self.stack))
 
-
-def asm_compile(text: str, char_bit: int) -> typing.List[int]:
-    labels = {}
-    label_refs = collections.defaultdict(list)
-
-    def resolve_arg(text: str,
-                    op_address: int,
-                    arg_offset: int, # relative to op address
-                    op: Operation):
-        try:
-            return Register.by_name(text.upper()).value
-        except KeyError:
-            pass
-
-        try:
-            if text[0] == "'" and text[-1] == "'":
-                return ord(text[1:-1])
-            else:
-                return int(text, 0)
-        except ValueError:
-            label_refs[text].append((op, op_address, arg_offset))
-            return 0
-
-    bytecode = []
-
-    for line in text.strip().split('\n'):
-        line = line.strip()
-        if line.endswith(':'):
-            labels[line[:-1]] = len(bytecode)
-        elif line:
-            if ' ' in line:
-                mnemonic, argline = line.split(' ', maxsplit=1)
-            else:
-                mnemonic = line
-                argline = ''
-
-            try:
-                op = CPU.OPERATIONS_BY_MNEMONIC[mnemonic]
-            except KeyError as e:
-                raise KeyError('invalid opcode: %s' % mnemonic) from e
-
-            op_bytecode = [op.opcode]
-            arg_off = len(op_bytecode)
-            args = []
-            for idx, arg in enumerate(argline.split()):
-                arg = arg.strip(',') # TODO: UGLYYY
-                args.append(resolve_arg(arg, len(bytecode), arg_off, op))
-                arg_off += Packer.calcsize(op.arg_def[idx]) 
-
-            op_bytecode += op.encode_args(char_bit=char_bit, args=args)
-
-            logging.debug('% 9s %s' % ('', line))
-            logging.debug('%08x: %-8s %-20s %s' % (len(bytecode), op.mnemonic, ', '.join(str(x) for x in args), ' '.join('%03x' % b for b in op_bytecode)))
-            bytecode += op_bytecode
-
-    for label, refs in label_refs.items():
-        for op, op_address, arg_offset in refs:
-            target_addr = labels[label]
-            fill_addr = op_address + arg_offset
-
-            needs_relative_addr = op.mnemonic.endswith('.rel')
-            if needs_relative_addr:
-                # At the point of executing OP, IP points to the next instruction
-                target_addr = target_addr - (op_address + op.size_bytes)
-
-            logging.debug('filling address @ %#010x with %#010x (%s, %s)'
-                          % (fill_addr, target_addr, label, 'relative' if needs_relative_addr else 'absolute'))
-
-            packed_addr = Packer.pack(endianness=op.args_endianness,
-                                      char_bit=char_bit,
-                                      fmt='a',
-                                      args=[target_addr])
-            bytecode[fill_addr:fill_addr+Packer.calcsize('a')] = packed_addr
-
-    logging.debug(text)
-    logging.debug('bytecode:\n' + make_bytes_dump(bytecode, char_bit, alignment=4))
-
-    return bytecode
 
 logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
