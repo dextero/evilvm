@@ -125,53 +125,138 @@ class Operations:
 
     @Operation(arg_def='rr')
     def movw_r2r(cpu: 'CPU', dst_reg: int, src_reg: int):
+        """
+        movw.r2r dst, src - MOVe Word, Register to Register
+
+        dst = src
+        """
         cpu.registers[Register(dst_reg)] = cpu.registers[Register(src_reg)]
 
     @Operation(arg_def='rb')
     def movb_i2r(cpu: 'CPU', reg: int, immb: int):
+        """
+        movb.i2r dst, IMM_BYTE - MOVe Byte, Immediate to Register
+
+        dst = IMM_BYTE
+        """
         cpu.registers[Register(reg)] = immb
 
     @Operation(arg_def='ra')
     def movb_m2r(cpu: 'CPU', reg: int, addr: int):
+        """
+        movb.m2r dst, IMM_ADDR - MOVe Byte, Memory to Register
+
+        dst = byte ptr $RAM[IMM_ADDR]
+        """
         cpu.registers[Register(reg)] = cpu.ram[addr]
 
     @Operation(arg_def='ar')
     def movb_r2m(cpu: 'CPU', addr: int, reg: int):
+        """
+        movb.r2m IMM_ADDR, src - MOVe Byte, Register to Memory
+
+        byte ptr $RAM[IMM_ADDR] = src
+        """
         cpu.ram[addr] = cpu.registers[Register(reg)]
 
     @Operation(arg_def='rw')
     def movw_i2r(cpu: 'CPU', reg: int, immw: int):
+        """
+        movw.i2r dst, IMM_WORD - MOVe Word, Immediate to Register
+
+        dst = IMM_WORD
+        """
         cpu.registers[Register(reg)] = immw
 
     @Operation(arg_def='ra')
     def movw_m2r(cpu: 'CPU', reg: int, addr: int):
+        """
+        movw.m2r dst, IMM_ADDR - MOVe Word, Memory to Register
+
+        dst = word ptr $RAM[IMM_ADDR]
+        """
         cpu.registers[Register(reg)] = cpu.ram.get_fmt('w', addr)
 
     @Operation(arg_def='ar')
     def movw_r2m(cpu: 'CPU', addr: int, reg: int):
+        """
+        movw.r2m IMM_ADDR, src - MOVe Word, Register to Memory
+
+        word ptr $RAM[IMM_ADDR] = src
+        """
         cpu.ram.set_fmt('w', addr, cpu.registers[Register(reg)])
 
     @Operation(arg_def='rr')
-    def ldb_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
-        cpu.registers[Register(dst_reg)] = cpu.ram[cpu.registers[Register(addr_reg)]]
+    def lpb_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
+        """
+        lpb.r dst, src - Load Program Byte, address from Register
+
+        dst = byte ptr $PROGRAM[src]
+        """
+        addr = cpu.registers[Register(addr_reg)]
+        cpu.registers[Register(dst_reg)] = cpu.program[addr]
         cpu._set_flags(cpu.registers[Register(dst_reg)])
 
     @Operation(arg_def='rr')
-    def ldw_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
-        cpu.registers[Register(reg)] = \
-                cpu.ram.get_fmt('w', cpu.registers[Register(addr_reg)])
+    def lpw_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
+        """
+        lpw.r dst, src - Load Program Word, address from Register
+
+        dst = word ptr $PROGRAM[src]
+        """
+        addr = cpu.registers[Register(addr_reg)]
+        cpu.registers[Register(reg)] = cpu.program.get_fmt('w', addr)
+        cpu._set_flags(cpu.registers[Register(dst_reg)])
+
+    @Operation(arg_def='rr')
+    def ldb_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
+        """
+        ldb.r dst, src - Load Data Byte, address from Register
+
+        dst = byte ptr $RAM[src]
+        """
+        addr = cpu.registers[Register(addr_reg)]
+        cpu.registers[Register(dst_reg)] = cpu.ram[addr]
+        cpu._set_flags(cpu.registers[Register(dst_reg)])
+
+    @Operation(arg_def='rr')
+    def ldw(cpu: 'CPU', dst_reg: int, addr_reg: int):
+        """
+        ldw.r dst, src - Load Data Word, address from Register
+
+        dst = word ptr $RAM[src]
+        """
+        addr = cpu.registers[Register(addr_reg)]
+        cpu.registers[Register(reg)] = cpu.ram.get_fmt('w', addr)
         cpu._set_flags(cpu.registers[Register(dst_reg)])
 
     @Operation(arg_def='a')
     def jmp_rel(cpu: 'CPU', addr: int):
+        """
+        jmp.rel IMM_ADDR_REL - unconditional JuMP, RELative
+
+        IP += IMM_ADDR_REL
+        """
         cpu.registers.IP += addr
 
     @Operation()
     def out(cpu: 'CPU'):
+        """
+        out - print character to standard output
+
+        print(A)
+        """
         sys.stdout.write(chr(cpu.registers.A))
 
     @Operation(arg_def='a')
     def call_rel(cpu: 'CPU', addr: int):
+        """
+        call.rel addr - CALL subroutine, RELative
+
+        SP -= sizeof_addr
+        addr ptr $STACK[SP] = IP
+        IP = addr
+        """
         addr_size = DataType.calcsize('a')
         cpu.registers.SP -= addr_size
         cpu.stack.set_fmt('a', cpu.registers.SP, cpu.registers.IP)
@@ -179,27 +264,53 @@ class Operations:
 
     @Operation()
     def ret(cpu: 'CPU'):
+        """
+        ret - RETurn from subroutine
+
+        IP = addr ptr $STACK[SP]
+        SP += sizeof_addr
+        """
         addr_size = DataType.calcsize('a')
         cpu.registers.IP = cpu.stack.get_fmt('a', cpu.registers.SP)
         cpu.registers.SP += addr_size
 
     @Operation(arg_def='rb')
     def add_b(cpu: 'CPU', reg: int, immb: int):
+        """
+        add.b dst, IMM_BYTE - ADD Byte, immediate
+
+        dst += IMM_BYTE
+        """
         cpu.registers[Register(reg)] += immb
         cpu._set_flags(cpu.registers[Register(reg)])
 
     @Operation(arg_def='rw')
     def add_w(cpu: 'CPU', reg: int, immw: int):
+        """
+        add.w dst, IMM_WORD - ADD Word, immediate
+
+        dst += IMM_WORD
+        """
         cpu.registers[Register(reg)] += immw
         cpu._set_flags(cpu.registers[Register(reg)])
 
     @Operation(arg_def='rb')
     def sub_b(cpu: 'CPU', reg: int, immb: int):
+        """
+        sub.b dst, IMM_BYTE - SUBtract Byte, immediate
+
+        dst -= IMM_BYTE
+        """
         cpu.registers[Register(reg)] -= immb
         cpu._set_flags(cpu.registers[Register(reg)])
 
     @Operation(arg_def='rb')
     def sub_w(cpu: 'CPU', reg: int, immw: int):
+        """
+        sub.b dst, IMM_WORD - SUBtract Word, immediate
+
+        dst -= IMM_WORD
+        """
         cpu.registers[Register(reg)] -= immw
         cpu._set_flags(cpu.registers[Register(reg)])
 
