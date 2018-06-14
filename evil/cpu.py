@@ -442,6 +442,7 @@ class CPU:
                 ram: Memory,
                 stack: Memory):
         self.registers.IP = 0
+        self.registers.SP = len(ram)
         self.registers.RP = len(stack)
 
         self.program = program
