@@ -255,8 +255,8 @@ class Operations:
         """
         seek - set current GPU write pointer position to (x, y)
         """
-        cpu.gpu.seek(x=cpu.registers[x_reg],
-                     y=cpu.registers[y_reg])
+        cpu.gpu.seek(x=cpu.registers[Register(x_reg)],
+                     y=cpu.registers[Register(y_reg)])
 
     @Operation(arg_def='a')
     def call_rel(cpu: 'CPU', addr: int):
@@ -293,7 +293,7 @@ class Operations:
         word ptr $RAM[SP] = reg
         """
         cpu.registers.SP -= DataType.from_fmt('w').size_bytes
-        cpu.ram.set_fmt('w', cpu.registers.SP, cpu.registers[reg])
+        cpu.ram.set_fmt('w', cpu.registers.SP, cpu.registers[Register(reg)])
 
     @Operation(arg_def='r')
     def pop(cpu: 'CPU', reg: int):
@@ -303,7 +303,7 @@ class Operations:
         reg = word ptr $RAM[SP]
         SP += sizeof_word
         """
-        cpu.ram.get_fmt('w', cpu.registers.SP, cpu.registers[reg])
+        cpu.registers[Register(reg)] = cpu.ram.get_fmt('w', cpu.registers.SP)
         cpu.registers.SP += DataType.from_fmt('w').size_bytes
 
     @Operation(arg_def='rb')
