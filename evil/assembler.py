@@ -170,6 +170,8 @@ class Assembler:
         Parses LINE as an instruction and appends its intermediate
         representation to self._intermediate.
         """
+        logging.debug('parse: %s', line)
+
         stripped_line = line.strip()
         if not stripped_line or stripped_line.startswith('#'):
             self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
@@ -221,6 +223,8 @@ class Assembler:
     def _resolve_constants(self):
         def resolve(const: Union[int, 'UnresolvedConstant'],
                     already_resolved: Set[str] = None):
+            logging.debug('resolve: %s' % (const,))
+
             if not isinstance(const, Assembler.UnresolvedConstant):
                 return const
 
@@ -252,6 +256,8 @@ class Assembler:
         mem = ExtendableMemory(self._char_bit)
 
         for line in self._intermediate:
+            logging.debug('compile: %s', line.source)
+
             prev_ip = curr_ip
 
             for elem in line.elements:
