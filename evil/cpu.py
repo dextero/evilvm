@@ -316,10 +316,16 @@ class Operations:
 
     @Operation(arg_def='rw')
     def cmp_w(cpu: 'CPU', reg: int, immw: int):
+        """
+        cmp.w reg, IMM_WORD - CoMPare register with Word, set flags
+        """
         cpu._set_flags(cpu.registers[Register(reg)] - immw)
 
     @Operation(arg_def='rr')
     def cmp_r(cpu: 'CPU', reg_a: int, reg_b: int):
+        """
+        cmp.r reg_a, reg_b - CoMPare two registers, set flags
+        """
         cpu._set_flags(cpu.registers[Register(reg_a)] - cpu.registers[Register(reg_b)])
 
     @Operation(arg_def='a')
@@ -349,6 +355,9 @@ class Operations:
 
     @Operation()
     def halt(cpu: 'CPU'):
+        """
+        halt - stops the machine
+        """
         raise HaltRequested()
 
 class CPU:
