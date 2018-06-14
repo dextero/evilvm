@@ -454,6 +454,8 @@ class CPU:
                 self.gpu.refresh()
         except HaltRequested:
             pass
+        except KeyboardInterrupt:
+            print(self)
         finally:
             self.gpu.refresh(force=True)
 
