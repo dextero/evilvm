@@ -1,0 +1,2 @@
+class Fault(Exception):
+    pass

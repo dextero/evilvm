@@ -2,6 +2,7 @@ from typing import List, NamedTuple, Any, Tuple
 
 from evil.utils import make_bytes_dump
 from evil.endianness import Endianness, bytes_from_value, value_from_bytes
+from evil.fault import Fault
 
 
 class DataType(NamedTuple):
@@ -32,6 +33,13 @@ DataType._TYPES = {p.name: p for p in [
     DataType(name='w', size_bytes=7, alignment=7),
 ]}
 
+class MemoryAccessFault(Fault):
+    def __init__(self,
+                 addr: int,
+                 valid_begin: int,
+                 valid_end: int):
+        super().__init__('Invalid memory access - address %d is not in range [%d, %d)'
+                         % (addr, valid_begin, valid_end))
 
 class Memory:
     def __init__(self,
@@ -64,8 +72,8 @@ class Memory:
                     addr: int) -> int:
         try:
             return self._memory[addr]
-        except IndexError as e:
-            raise IndexError('invalid memory access at address %d' % addr) from e
+        except IndexError as err:
+            raise MemoryAccessFault(addr, 0, len(self)) from err
 
     def __setitem__(self,
                     addr: int,
@@ -73,8 +81,8 @@ class Memory:
         assert val < 2**self.char_bit
         try:
             self._memory[addr] = val
-        except IndexError as e:
-            raise IndexError('invalid memory access at address %d' % addr) from e
+        except IndexError as err:
+            raise MemoryAccessFault(addr, 0, len(self)) from err
 
     def _get_datatype(self,
                       addr: int,
@@ -136,7 +144,7 @@ class Memory:
         return self.make_dump(DataType.from_fmt('w').alignment)
 
 
-class UnalignedMemoryAccessError(Exception):
+class UnalignedMemoryAccessFault(Fault):
     def __init__(self, address: int, alignment: int):
         super().__init__('Address %#x is not %d-byte aligned' % (address, alignment))
 
@@ -147,7 +155,7 @@ class StrictlyAlignedMemory(Memory):
                       datatype: DataType,
                       endianness: Endianness) -> int:
         if addr % datatype.alignment != 0:
-            raise UnalignedMemoryAccessError(address=addr, alignment=datatype.alignment)
+            raise UnalignedMemoryAccessFault(address=addr, alignment=datatype.alignment)
 
         return super()._get_datatype(addr, datatype, endianness)
 
@@ -157,7 +165,7 @@ class StrictlyAlignedMemory(Memory):
                       datatype: DataType,
                       endianness: Endianness):
         if addr % datatype.alignment != 0:
-            raise UnalignedMemoryAccessError(address=addr, alignment=datatype.alignment)
+            raise UnalignedMemoryAccessFault(address=addr, alignment=datatype.alignment)
 
         return super()._set_datatype(addr, value, datatype, endianness)
 

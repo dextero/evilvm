@@ -3,7 +3,11 @@ import time
 import logging
 
 from evil.utils import group
+from evil.fault import Fault
 
+class GPUFault(Fault):
+    """ GPU access error """
+    pass
 
 class GPU:
     def __init__(self,
@@ -30,7 +34,9 @@ class GPU:
         self._curr_y = (self._curr_y + quotient) % self._height
 
     def put(self, n: int):
-        assert n < sys.maxunicode
+        if n >= sys.maxunicode:
+            raise GPUFault('invalid character value: %d' % n)
+
         self._pixels[self._curr_y * self._width + self._curr_x] = n
         self._curr_x += 1
         self._normalize_curr_pos()

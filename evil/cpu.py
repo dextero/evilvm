@@ -6,6 +6,7 @@ import sys
 from evil.endianness import Endianness, bytes_from_value, value_from_bytes
 from evil.memory import Memory, DataType
 from evil.gpu import GPU
+from evil.fault import Fault
 
 class Register(enum.Enum):
     """ CPU register """
@@ -432,11 +433,15 @@ class CPU:
                     raise KeyError('invalid opcode: %d (%x) at address %08x'
                                    % (program[idx], program[idx], idx)) from e
 
-                args = op.decode_args(memory=program, addr=idx + op.opcode_size_bytes)
-                self._log_instruction(op, args, program[idx:idx+op.size_bytes])
+                try:
+                    args = op.decode_args(memory=program, addr=idx + op.opcode_size_bytes)
+                    self._log_instruction(op, args, program[idx:idx+op.size_bytes])
 
-                self.registers.IP = idx + op.size_bytes
-                op.run(self, *args)
+                    self.registers.IP = idx + op.size_bytes
+                    op.run(self, *args)
+                except Fault as err:
+                    # TODO: add fault handlers?
+                    logging.error(err)
 
                 self.gpu.refresh()
         except HaltRequested:
