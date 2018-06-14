@@ -117,7 +117,7 @@ class Assembler:
     def _parse_immediate(text: str,
                          operation: Operation,
                          datatype: DataType) -> 'Assembler.Immediate':
-        if len(text) == 3 and text[0] == "'" == text[-1]:
+        if text[0] == "'" == text[-1]:
             value = ord(text[1])
         else:
             value = int(text, 0)
@@ -136,11 +136,7 @@ class Assembler:
         if arg_type in 'r':
             return Assembler.RegisterRef(Register.by_name(text.upper()),
                                          endianness=operation.args_endianness)
-        elif arg_type in 'b':
-            # literal value
-            return self._parse_immediate(text, operation,
-                                         DataType.from_fmt(arg_type))
-        elif arg_type in 'aw':
+        elif arg_type in 'baw':
             try:
                 # literal value
                 return self._parse_immediate(text, operation,
