@@ -11,6 +11,7 @@ class Register(enum.Enum):
     """ CPU register """
     IP = enum.auto() # instruction pointer
     SP = enum.auto() # stack pointer
+    RP = enum.auto() # return address pointer
     A = enum.auto()  # accumulator
     C = enum.auto()  # counter
     F = enum.auto()  # flags
@@ -252,13 +253,13 @@ class Operations:
         """
         call.rel addr - CALL subroutine, RELative
 
-        SP -= sizeof_addr
-        addr ptr $STACK[SP] = IP
+        RP -= sizeof_addr
+        addr ptr $CALL_STACK[RP] = IP
         IP = addr
         """
         addr_size = DataType.calcsize('a')
-        cpu.registers.SP -= addr_size
-        cpu.stack.set_fmt('a', cpu.registers.SP, cpu.registers.IP)
+        cpu.registers.RP -= addr_size
+        cpu.call_stack.set_fmt('a', cpu.registers.RP, cpu.registers.IP)
         cpu.registers.IP += addr
 
     @Operation()
@@ -266,12 +267,34 @@ class Operations:
         """
         ret - RETurn from subroutine
 
-        IP = addr ptr $STACK[SP]
-        SP += sizeof_addr
+        IP = addr ptr $CALL_STACK[RP]
+        RP += sizeof_addr
         """
         addr_size = DataType.calcsize('a')
-        cpu.registers.IP = cpu.stack.get_fmt('a', cpu.registers.SP)
-        cpu.registers.SP += addr_size
+        cpu.registers.IP = cpu.call_stack.get_fmt('a', cpu.registers.RP)
+        cpu.registers.RP += addr_size
+
+    @Operation(arg_def='r')
+    def push(cpu: 'CPU', reg: int):
+        """
+        push - PUSH register onto data stack
+
+        SP -= sizeof_word
+        word ptr $RAM[SP] = reg
+        """
+        cpu.registers.SP -= DataType.from_fmt('w').size_bytes
+        cpu.ram.set_fmt('w', cpu.registers.SP, cpu.registers[reg])
+
+    @Operation(arg_def='r')
+    def pop(cpu: 'CPU', reg: int):
+        """
+        pop - POP value from data stack into register
+
+        reg = word ptr $RAM[SP]
+        SP += sizeof_word
+        """
+        cpu.ram.get_fmt('w', cpu.registers.SP, cpu.registers[reg])
+        cpu.registers.SP += DataType.from_fmt('w').size_bytes
 
     @Operation(arg_def='rb')
     def add_b(cpu: 'CPU', reg: int, immb: int):
@@ -368,7 +391,7 @@ class CPU:
 
         self.program = None
         self.ram = None
-        self.stack = None
+        self.call_stack = None
 
     def _set_flags(self, value: int):
         self.registers.F = (Flag.Zero & (value == 0)
@@ -391,11 +414,11 @@ class CPU:
                 ram: Memory,
                 stack: Memory):
         self.registers.IP = 0
-        self.registers.SP = len(stack)
+        self.registers.RP = len(stack)
 
         self.program = program
         self.ram = ram
-        self.stack = stack
+        self.call_stack = stack
 
         self.gpu = GPU(width=80, height=24)
 
@@ -428,6 +451,6 @@ class CPU:
                 '%s\n'
                 '--- RAM ---\n'
                 '%s\n'
-                '--- STACK ---\n'
+                '--- CALL_STACK ---\n'
                 '%s\n' % (self.registers, self.program, self.ram,
-                          self.stack.make_dump(DataType.from_fmt('a').alignment)))
+                          self.call_stack.make_dump(DataType.from_fmt('a').alignment)))
