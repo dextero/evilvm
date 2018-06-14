@@ -452,12 +452,12 @@ class CPU:
                     logging.error(err)
 
                 self.gpu.refresh()
+
+            self.gpu.refresh(force=True)
         except HaltRequested:
             pass
         except KeyboardInterrupt:
             print(self)
-        finally:
-            self.gpu.refresh(force=True)
 
     def __str__(self):
         return ('--- REGISTERS ---\n'
