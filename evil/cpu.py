@@ -400,10 +400,13 @@ class Operations:
 
     @Operation()
     def halt(cpu: 'CPU'):
-        """
-        halt - stops the machine
-        """
+        """ halt - stops the machine """
         raise HaltRequested()
+
+    @Operation()
+    def dbg(cpu: 'CPU'):
+        """ dbg - prints current state of the VM """
+        print(cpu)
 
 
 class InvalidOpcodeFault(Fault):
