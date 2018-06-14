@@ -391,6 +391,11 @@ class Operations:
         """
         raise HaltRequested()
 
+
+class InvalidOpcodeFault(Fault):
+    pass
+
+
 class CPU:
     OPERATIONS_BY_OPCODE = {o.opcode: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
     OPERATIONS_BY_MNEMONIC = {o.mnemonic: o for o in Operations.__dict__.values() if isinstance(o, Operation)}
@@ -433,15 +438,15 @@ class CPU:
 
         try:
             while True:
-                idx = self.registers.IP
-
                 try:
-                    op = self.OPERATIONS_BY_OPCODE[program[idx]]
-                except KeyError as e:
-                    raise KeyError('invalid opcode: %d (%x) at address %08x'
-                                   % (program[idx], program[idx], idx)) from e
+                    idx = self.registers.IP
 
-                try:
+                    try:
+                        op = self.OPERATIONS_BY_OPCODE[program[idx]]
+                    except KeyError as err:
+                        raise InvalidOpcodeFault('invalid opcode: %d (%x) at address %08x'
+                                                 % (program[idx], program[idx], idx)) from err
+
                     args = op.decode_args(memory=program, addr=idx + op.opcode_size_bytes)
                     self._log_instruction(op, args, program[idx:idx+op.size_bytes])
 
