@@ -14,6 +14,7 @@ class Register(enum.Enum):
     SP = enum.auto() # stack pointer
     RP = enum.auto() # return address pointer
     A = enum.auto()  # accumulator
+    B = enum.auto()  # general purpose
     C = enum.auto()  # counter
     F = enum.auto()  # flags
 
