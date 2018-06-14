@@ -173,7 +173,7 @@ class Assembler:
         logging.debug('parse: %s', line)
 
         stripped_line = line.strip()
-        if not stripped_line or stripped_line.startswith('#'):
+        if not stripped_line or stripped_line.startswith(';'):
             self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
             return
 
