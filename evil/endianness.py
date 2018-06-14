@@ -56,6 +56,8 @@ def bytes_from_value(endianness: Endianness,
         return list(reversed(result))
     elif endianness == Endianness.PDP:
         return list(reduce(list.__add__, (reversed(g) for g in group(result, 2))))
+    else:
+        assert False, 'Invalid endianness: %r' % endianness
 
 
 def value_from_bytes(endianness: Endianness,
@@ -75,6 +77,8 @@ def value_from_bytes(endianness: Endianness,
         val_le = list(reversed(val_bytes))
     elif endianness == Endianness.PDP:
         val_le = reduce(list.__add__, (reversed(g) for g in group(val_bytes, 2)))
+    else:
+        assert False, 'Invalid endianness: %r' % endianness
 
     negative = False
     msb = (1 << (char_bit - 1))
