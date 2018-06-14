@@ -41,6 +41,14 @@ class GPU:
         self._curr_x += 1
         self._normalize_curr_pos()
 
+    def seek(self, x: int, y: int):
+        if (x < 0 or x >= self._width
+                or y < 0 or y >= self._height):
+            raise GPUFault('%d, %d seek position is invalid for screen of size %d x %d'
+                           % (x, y, self._width, self._height))
+        self._curr_x = x
+        self._curr_y = y
+
     def _refresh_now(self):
         screen_str = ''
         for line in group(self._pixels, self._width):

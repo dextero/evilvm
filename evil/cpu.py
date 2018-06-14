@@ -249,6 +249,14 @@ class Operations:
         """
         cpu.gpu.put(cpu.registers.A)
 
+    @Operation(arg_def='rr')
+    def seek(cpu: 'CPU', x_reg: int, y_reg: int):
+        """
+        seek - set current GPU write pointer position to (x, y)
+        """
+        cpu.gpu.seek(x=cpu.registers[x_reg],
+                     y=cpu.registers[y_reg])
+
     @Operation(arg_def='a')
     def call_rel(cpu: 'CPU', addr: int):
         """
