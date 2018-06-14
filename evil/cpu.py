@@ -5,6 +5,7 @@ import sys
 
 from evil.endianness import Endianness, bytes_from_value, value_from_bytes
 from evil.memory import Memory, DataType
+from evil.gpu import GPU
 
 class Register(enum.Enum):
     """ CPU register """
@@ -242,11 +243,9 @@ class Operations:
     @Operation()
     def out(cpu: 'CPU'):
         """
-        out - print character to standard output
-
-        print(A)
+        out - print character to GPU
         """
-        sys.stdout.write(chr(cpu.registers.A))
+        cpu.gpu.put(cpu.registers.A)
 
     @Operation(arg_def='a')
     def call_rel(cpu: 'CPU', addr: int):
@@ -398,6 +397,8 @@ class CPU:
         self.ram = ram
         self.stack = stack
 
+        self.gpu = GPU(width=80, height=24)
+
         try:
             while True:
                 idx = self.registers.IP
@@ -413,8 +414,12 @@ class CPU:
 
                 self.registers.IP = idx + op.size_bytes
                 op.run(self, *args)
+
+                self.gpu.refresh()
         except HaltRequested:
             pass
+        finally:
+            self.gpu.refresh(force=True)
 
     def __str__(self):
         return ('--- REGISTERS ---\n'
