@@ -25,9 +25,8 @@ class GPU:
         return 1.0 / self._refresh_rate_hz
 
     def _normalize_curr_pos(self):
-        while self._curr_x >= self._width:
-            self._curr_y += 1
-        self._curr_y %= self._height
+        quotient, self._curr_x = divmod(self._curr_x, self._width)
+        self._curr_y = (self._curr_y + quotient) % self._height
 
     def put(self, n: int):
         assert n < sys.maxunicode
