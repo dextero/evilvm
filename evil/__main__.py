@@ -7,7 +7,7 @@ import os
 import argparse
 
 from evil.cpu import CPU
-from evil.memory import Memory, DataType
+from evil.memory import Memory, StrictlyAlignedMemory, DataType
 from evil.assembler import Assembler
 
 logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
@@ -81,8 +81,8 @@ with open(args.source[0]) as infile:
                                           value=asm.assemble(infile.read()),
                                           size=args.program_size)
 
-MEMORY_BLOCKS['ram'] = Memory(char_bit=args.char_bit, size=DataType.calcsize('w') * args.ram_size)
-MEMORY_BLOCKS['stack'] = Memory(char_bit=args.char_bit, size=DataType.calcsize('a') * args.stack_size)
+MEMORY_BLOCKS['ram'] = StrictlyAlignedMemory(char_bit=args.char_bit, size=DataType.calcsize('w') * args.ram_size)
+MEMORY_BLOCKS['stack'] = StrictlyAlignedMemory(char_bit=args.char_bit, size=DataType.calcsize('a') * args.stack_size)
 
 for mapping in args.map_memory:
     dst, src = mapping.split('=', maxsplit=1)
