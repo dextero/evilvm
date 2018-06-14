@@ -1,6 +1,7 @@
+start:
     movw.i2r c, hello
     call.rel print
-    halt
+    jmp.rel start
 
 print:
     lpb.r a, c
