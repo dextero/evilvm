@@ -385,6 +385,19 @@ class Operations:
         if not (cpu.registers.F & Flag.Greater):
             cpu.registers.IP += addr
 
+    @Operation(arg_def='a')
+    def loop_rel(cpu: 'CPU', addr: int):
+        """
+        loop.rel IMM_ADDR_REL
+
+        if C > 0:
+            C -= 1
+            IP += IMM_ADDR_REL
+        """
+        if cpu.registers.C > 0:
+            cpu.registers.C -= 1
+            cpu.registers.IP += addr
+
     @Operation()
     def halt(cpu: 'CPU'):
         """
