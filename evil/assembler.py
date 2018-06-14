@@ -102,6 +102,12 @@ class Assembler:
         Clears the assembler state.
         """
         self._constants = {}
+
+        # TODO: hack to allow sizeof(x), alignof(x)
+        for dt in DataType._TYPES.values():
+            self._constants['sizeof(%s)' % dt.name] = dt.size_bytes
+            self._constants['alignof(%s)' % dt.name] = dt.alignment
+
         # intermediate representation - list of:
         # Operation, Immediate, RegisterRef, SymbolRef
         self._intermediate = []
