@@ -29,11 +29,11 @@ parser.add_argument('-p', '--program-size',
                     type=int,
                     help='Size, in bytes, of the program address space. If not specified, program memory space will be just large enough to accomodate program bytecode')
 parser.add_argument('-r', '--ram-size',
-                    default=128,
+                    default=8,
                     type=int,
                     help='Size, in machine-words, of the RAM address space')
 parser.add_argument('-s', '--stack-size',
-                    default=32,
+                    default=8,
                     type=str,
                     help='Size, in address-words, of the return stack address space')
 parser.add_argument('-m', '--map-memory',
