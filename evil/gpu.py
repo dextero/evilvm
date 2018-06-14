@@ -52,7 +52,7 @@ class GPU:
     def _refresh_now(self):
         screen_str = ''
         for line in group(self._pixels, self._width):
-            line_str = ''.join(' ' if chr(n).isspace() else chr(n) for n in line)
+            line_str = ''.join(chr(n) if chr(n).isprintable() else ' ' for n in line)
             screen_str += line_str + '\n'
 
         sys.stdout.write(screen_str)
