@@ -30,7 +30,7 @@ class GPU:
 
     def put(self, n: int):
         assert n < sys.maxunicode
-        self._pixels[self._curr_y * self._height + self._curr_x] = n
+        self._pixels[self._curr_y * self._width + self._curr_x] = n
         self._curr_x += 1
         self._normalize_curr_pos()
 
