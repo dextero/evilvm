@@ -1,5 +1,6 @@
 import sys
 import time
+import logging
 
 from evil.utils import group
 
@@ -47,5 +48,6 @@ class GPU:
     def refresh(self, force=False):
         now = time.time()
         if force or (now - self._refresh_last_time >= self._refresh_interval_s):
+            logging.debug('refresh interval: %f', now - self._refresh_last_time)
             self._refresh_last_time = now
             self._refresh_now()
