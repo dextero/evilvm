@@ -326,6 +326,16 @@ class Operations:
         cpu.registers[Register(reg)] += immw
         cpu._set_flags(cpu.registers[Register(reg)])
 
+    @Operation(arg_def='rr')
+    def add_r(cpu: 'CPU', dst: int, src: int):
+        """
+        add.r dst, src - ADD Register
+
+        dst += src
+        """
+        cpu.registers[Register(dst)] += cpu.registers[Register(src)]
+        cpu._set_flags(cpu.registers[Register(dst)])
+
     @Operation(arg_def='rb')
     def sub_b(cpu: 'CPU', reg: int, immb: int):
         """
@@ -345,6 +355,16 @@ class Operations:
         """
         cpu.registers[Register(reg)] -= immw
         cpu._set_flags(cpu.registers[Register(reg)])
+
+    @Operation(arg_def='rr')
+    def sub_r(cpu: 'CPU', dst: int, src: int):
+        """
+        sub.r dst, src - SUBtract Register
+
+        dst -= src
+        """
+        cpu.registers[Register(dst)] -= cpu.registers[Register(src)]
+        cpu._set_flags(cpu.registers[Register(dst)])
 
     @Operation(arg_def='rw')
     def cmp_w(cpu: 'CPU', reg: int, immw: int):
