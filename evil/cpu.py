@@ -402,6 +402,36 @@ class Operations:
         cpu.registers[Register(dst)] -= cpu.registers[Register(src)]
         cpu._set_flags(cpu.registers[Register(dst)])
 
+    @Operation(arg_def='rb')
+    def mul_b(cpu: 'CPU', reg: int, immb: int):
+        """
+        mul.b dst, IMM_BYTE - MULtiply Byte, immediate
+
+        dst -= IMM_BYTE
+        """
+        cpu.registers[Register(reg)] *= immb
+        cpu._set_flags(cpu.registers[Register(reg)])
+
+    @Operation(arg_def='rb')
+    def mul_w(cpu: 'CPU', reg: int, immw: int):
+        """
+        mul.b dst, IMM_WORD - MULtiply Word, immediate
+
+        dst -= IMM_WORD
+        """
+        cpu.registers[Register(reg)] *= immw
+        cpu._set_flags(cpu.registers[Register(reg)])
+
+    @Operation(arg_def='rr')
+    def mul_r(cpu: 'CPU', dst: int, src: int):
+        """
+        mul.r dst, src - MULtiply Register
+
+        dst -= src
+        """
+        cpu.registers[Register(dst)] *= cpu.registers[Register(src)]
+        cpu._set_flags(cpu.registers[Register(dst)])
+
     @Operation(arg_def='rw')
     def cmp_w(cpu: 'CPU', reg: int, immw: int):
         """
