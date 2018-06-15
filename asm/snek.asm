@@ -35,6 +35,7 @@ SNAKE_HEAD_Y = MAP_END + 3
 
 start:
     call.rel draw_border
+    call.rel draw_snake
     halt
 
 ; A, B - x/y position of the left end
@@ -157,14 +158,16 @@ draw_snake_segment:
 ; a, b - new pos
 ; c - new next direction
 get_next_snake_segment:
-    cmp c, 2 ; TODO: constant
+    ; TODO: constant
+    cmp.b c, 2
     jb.rel draw_snake_segment_fail
 
-    cmp c, 5
+    cmp.b c, 5
     ja.rel draw_snake_segment_fail
 
-    sub.b c, 2 ; TODO: constant
-    mul.b c, sizeof(addr)
+    ; TODO: constant
+    sub.b c, 2
+    mul.b c, sizeof(a)
     add.w c, draw_snake_segment_advance
     call.r c
 
@@ -178,23 +181,10 @@ draw_snake_segment_fail:
 ; IN: a, b - pos
 ; OUT: c - offset
 xy_to_offset:
-    mov.r2r c, b
+    movw.r2r c, b
     mul.b c, WIDTH
     add.r c, a
     ret
-
-
-draw_snake:
-    movb.m2r a, SNAKE_HEAD_X
-    movb.m2r b, SNAKE_HEAD_Y
-    seek a, b
-
-    mul.b b, WIDTH
-    add.r a, b
-    ldb.r c, a
-
-    movb.i2r a, 'o'
-    out
 
 
 draw_snake:
@@ -206,12 +196,14 @@ draw_snake:
     out
 
     call.rel xy_to_offset
-    ldb.r c, c ; TODO: should it be valid?
+    ; TODO: should it be valid?
+    ldb.r c, c
 
 draw_snake_next:
     call.rel get_next_snake_segment
 
-    cmp.b c, 6 ; TODO: constant
+    ; TODO: constant
+    cmp.b c, 6
     jae.rel draw_snake_end
 
     call.rel draw_snake_segment
