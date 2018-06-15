@@ -294,7 +294,7 @@ class Operations:
         cpu.call_stack.set_fmt('a', cpu.registers.RP, cpu.registers.IP)
         cpu.registers.IP += addr
 
-    @Operation(arg_def='a')
+    @Operation(arg_def='r')
     def call_r(cpu: 'CPU', reg: int):
         """
         call.r addr - CALL subroutine, Register
@@ -458,12 +458,12 @@ class Operations:
 
     @Operation(arg_def='a')
     def jae_rel(cpu: 'CPU', addr: int):
-        if cpu.registers.F & (Flag.Equal | Flag.Greater):
+        if cpu.registers.F & (Flag.Zero | Flag.Greater):
             cpu.registers.IP += addr
 
     @Operation(arg_def='a')
     def jb_rel(cpu: 'CPU', addr: int):
-        if not (cpu.registers.F & (Flag.Equal | Flag.Greater)):
+        if not (cpu.registers.F & (Flag.Zero | Flag.Greater)):
             cpu.registers.IP += addr
 
     @Operation(arg_def='a')
