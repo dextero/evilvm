@@ -126,8 +126,10 @@ class Assembler:
             raise ValueError('unsupported argument type: %s' % arg_type)
 
     def _make_data(self, fmt: str, line: str, argline: str):
-        elements = [Assembler.Expression(arg.strip(','), DataType.from_fmt(fmt))
+        datatype = DataType.from_fmt(fmt)
+        elements = [Assembler.Expression(arg.strip(','), datatype)
                     for arg in tokenize(argline)]
+        self._curr_offset += datatype.size_bytes * len(elements)
         return Assembler.LineIR(line, elements, bytecode=[])
 
     def _append_instruction(self, line: str):
@@ -218,7 +220,6 @@ class Assembler:
         if expr.datatype.name == 'a' and expr.relative:
             value -= curr_ip
 
-        logging.debug('_resolve_expression %s = %s', expr, value)
         return value
 
     def _resolve_constants(self):
@@ -280,6 +281,7 @@ class Assembler:
                 else:
                     raise AssertionError('unhandled IR type: %s' % type(elem).__name__)
 
+            curr_ip = len(mem)
             line.bytecode[:] = mem[prev_ip:]
 
         return mem
