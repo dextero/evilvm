@@ -195,7 +195,7 @@ class Assembler:
                 return const
 
             if value[0] == "'" == value[-1]:
-                return ord(value[1:-1])
+                return ord(eval(value))
             if value[0] == '"' == value[-1]:
                 return [x for x in eval(value).encode('utf-8')]
             try:
