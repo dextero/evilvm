@@ -125,8 +125,8 @@ class Assembler:
         else:
             raise ValueError('unsupported argument type: %s' % arg_type)
 
-    def _make_db(self, line: str, argline: str):
-        elements = [Assembler.Expression(arg.strip(','), DataType.from_fmt('b'))
+    def _make_data(self, fmt: str, line: str, argline: str):
+        elements = [Assembler.Expression(arg.strip(','), DataType.from_fmt(fmt))
                     for arg in tokenize(argline)]
         return Assembler.LineIR(line, elements, bytecode=[])
 
@@ -161,7 +161,9 @@ class Assembler:
             return
 
         SPECIAL_OPS = {
-            'db': self._make_db,
+            'db': lambda *args: self._make_data('b', *args),
+            'da': lambda *args: self._make_data('a', *args),
+            'dw': lambda *args: self._make_data('w', *args),
         }
         if mnemonic in SPECIAL_OPS:
             self._intermediate.append(SPECIAL_OPS[mnemonic](line, argline))
