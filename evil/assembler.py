@@ -69,24 +69,18 @@ class Assembler:
     class IRElement:
         pass
 
-    class Immediate(NamedTuple, IRElement):
-        """ Literal value. """
-        value: int
-        endianness: Endianness
-        datatype: DataType
-
     class RegisterRef(NamedTuple, IRElement):
         """ CPU register reference. """
         reg: Register
         endianness: Endianness
         datatype: DataType = DataType.from_fmt('r')
 
-    class SymbolRef(NamedTuple, IRElement):
-        """ Named value, either label address or constant. """
-        name: str
-        endianness: Endianness
-        relative: bool
+    class Expression(NamedTuple, IRElement):
+        """ Literal value, label address or constant. """
+        value: str
         datatype: DataType
+        endianness: Endianness = Endianness.Big
+        relative: bool = False
 
     class LineIR(NamedTuple):
         source: str
@@ -109,22 +103,9 @@ class Assembler:
             self._constants['alignof(%s)' % dt.name] = dt.alignment
 
         # intermediate representation - list of:
-        # Operation, Immediate, RegisterRef, SymbolRef
+        # Operation, RegisterRef, Expression
         self._intermediate = []
         self._curr_offset = 0
-
-    @staticmethod
-    def _parse_immediate(text: str,
-                         operation: Operation,
-                         datatype: DataType) -> 'Assembler.Immediate':
-        if text[0] == "'" == text[-1]:
-            value = ord(text[1])
-        else:
-            value = int(text, 0)
-
-        return Assembler.Immediate(value=value,
-                                   datatype=datatype,
-                                   endianness=operation.args_endianness)
 
     def _parse_arg(self,
                    text: str,
@@ -137,32 +118,16 @@ class Assembler:
             return Assembler.RegisterRef(Register.by_name(text.upper()),
                                          endianness=operation.args_endianness)
         elif arg_type in 'baw':
-            try:
-                # literal value
-                return self._parse_immediate(text, operation,
-                                             DataType.from_fmt(arg_type))
-            except ValueError:
-                # named symbol
-                return Assembler.SymbolRef(name=text,
-                                           endianness=operation.args_endianness,
-                                           datatype=DataType.from_fmt(arg_type),
-                                           relative=operation.mnemonic.endswith('.rel'))
+            return Assembler.Expression(value=text,
+                                        datatype=DataType.from_fmt(arg_type),
+                                        endianness=operation.args_endianness,
+                                        relative=operation.mnemonic.endswith('.rel'))
         else:
             raise ValueError('unsupported argument type: %s' % arg_type)
 
-    def _make_db(self, line: str, args: List[str]):
-        data = []
-
-        for arg in args:
-            if arg[0] == "'" == arg[-1]:
-                data.append(ord(arg[1:-1]))
-            elif arg[0] == '"' == arg[-1]:
-                data += eval(arg).encode('utf-8')
-            else:
-                data.append(int(arg, 0))
-
-        elements = [Assembler.Immediate(v, Endianness.Big, DataType.from_fmt('b'))
-                    for v in data]
+    def _make_db(self, line: str, argline: str):
+        elements = [Assembler.Expression(arg.strip(','), DataType.from_fmt('b'))
+                    for arg in tokenize(argline)]
         return Assembler.LineIR(line, elements, bytecode=[])
 
     def _append_instruction(self, line: str):
@@ -177,17 +142,21 @@ class Assembler:
             self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
             return
 
-        mnemonic, *args = tokenize(stripped_line)
+        mnemonic, *argline = stripped_line.split(maxsplit=1)
+        argline = argline[0] if argline else None
 
-        if not args and mnemonic.endswith(':'):
+        if not argline and mnemonic.endswith(':'):
             assert mnemonic not in self._constants
             self._constants[mnemonic[:-1]] = self._curr_offset
             self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
             return
-        elif len(args) > 1 and args[0] == '=':
+
+        tokenized_argline = tokenize(argline) if argline is not None else []
+
+        if tokenized_argline and tokenized_argline[0] == '=':
             assert mnemonic not in self._constants
             self._constants[mnemonic] = Assembler.UnresolvedConstant(name=mnemonic,
-                                                                     tokenized_args=args[1:])
+                                                                     tokenized_args=tokenized_argline[1:])
             self._intermediate.append(Assembler.LineIR(line, elements=[], bytecode=[]))
             return
 
@@ -195,7 +164,7 @@ class Assembler:
             'db': self._make_db,
         }
         if mnemonic in SPECIAL_OPS:
-            self._intermediate.append(SPECIAL_OPS[mnemonic](line, args))
+            self._intermediate.append(SPECIAL_OPS[mnemonic](line, argline))
             return
 
         try:
@@ -204,20 +173,50 @@ class Assembler:
             raise KeyError('invalid opcode: %s' % mnemonic) from err
 
         op_ir = [operation]
-        for idx, arg in enumerate(args):
-            arg = arg.strip(',') # TODO: UGLYYY
-            op_ir.append(self._parse_arg(arg, operation, operation.arg_def[idx]))
+
+        if argline is not None:
+            for idx, arg in enumerate(s.strip() for s in argline.split(',')):
+                op_ir.append(self._parse_arg(arg, operation, operation.arg_def[idx]))
 
         self._intermediate.append(Assembler.LineIR(line, op_ir, bytecode=[]))
         self._curr_offset += operation.size_bytes
 
-    def _symbol_ref_to_value(self,
-                             sym_ref: SymbolRef,
-                             curr_ip: int) -> List[int]:
-        value = self._constants[sym_ref.name]
+    def _resolve_expression(self,
+                            expr: Expression,
+                            curr_ip: int) -> List[int]:
+        def resolve(value: Union[int, str]):
+            if isinstance(value, int):
+                return value
 
-        if sym_ref.datatype.name == 'a' and sym_ref.relative:
+            const = self._constants.get(value)
+            if const is not None:
+                return const
+
+            if value[0] == "'" == value[-1]:
+                return ord(value[1:-1])
+            if value[0] == '"' == value[-1]:
+                return [x for x in eval(value).encode('utf-8')]
+            try:
+                return int(value, 0)
+            except ValueError:
+                # HACK: for later eval() - force integer division
+                if value == '/':
+                    return '//'
+                return value
+
+        tokens = tokenize(expr.value)
+        resolved_tokens = [resolve(t) for t in tokens]
+        if len(resolved_tokens) == 1:
+            value = resolved_tokens[0]
+            if not isinstance(value, list):
+                value = int(value)
+        else:
+            value = eval(' '.join(str(x) for x in resolved_tokens))
+
+        if expr.datatype.name == 'a' and expr.relative:
             value -= curr_ip
+
+        logging.debug('_resolve_expression %s = %s', expr, value)
         return value
 
     def _resolve_constants(self):
@@ -266,18 +265,16 @@ class Assembler:
                     mem.append(elem.opcode,
                                DataType.from_fmt('b'),
                                Endianness.Little)
-                elif isinstance(elem, Assembler.Immediate):
-                    mem.append(elem.value,
-                               elem.datatype,
-                               elem.endianness)
                 elif isinstance(elem, Assembler.RegisterRef):
                     mem.append(elem.reg.value,
                                elem.datatype,
                                elem.endianness)
-                elif isinstance(elem, Assembler.SymbolRef):
-                    mem.append(self._symbol_ref_to_value(elem, curr_ip),
-                               elem.datatype,
-                               elem.endianness)
+                elif isinstance(elem, Assembler.Expression):
+                    resolved = self._resolve_expression(elem, curr_ip)
+                    if not isinstance(resolved, list):
+                        resolved = [resolved]
+                    for res in resolved:
+                        mem.append(res, elem.datatype, elem.endianness)
                 else:
                     raise AssertionError('unhandled IR type: %s' % type(elem).__name__)
 
