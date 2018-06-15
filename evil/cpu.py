@@ -433,6 +433,13 @@ class Operations:
         cpu._set_flags(cpu.registers[Register(dst)])
 
     @Operation(arg_def='rw')
+    def cmp_b(cpu: 'CPU', reg: int, immb: int):
+        """
+        cmp.b reg, IMM_WORD - CoMPare register with Byte, set flags
+        """
+        cpu._set_flags(cpu.registers[Register(reg)] - immb)
+
+    @Operation(arg_def='rw')
     def cmp_w(cpu: 'CPU', reg: int, immw: int):
         """
         cmp.w reg, IMM_WORD - CoMPare register with Word, set flags
