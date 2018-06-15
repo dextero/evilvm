@@ -202,6 +202,17 @@ class Operations:
         cpu._set_flags(cpu.registers[Register(dst_reg)])
 
     @Operation(arg_def='rr')
+    def lpa_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
+        """
+        lda.r dst, src - Load Program Address, address from Register
+
+        dst = addr ptr $RAM[src]
+        """
+        addr = cpu.registers[Register(addr_reg)]
+        cpu.registers[Register(dst_reg)] = cpu.program.get_fmt('a', addr)
+        cpu._set_flags(cpu.registers[Register(dst_reg)])
+
+    @Operation(arg_def='rr')
     def lpw_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
         """
         lpw.r dst, src - Load Program Word, address from Register
@@ -224,7 +235,18 @@ class Operations:
         cpu._set_flags(cpu.registers[Register(dst_reg)])
 
     @Operation(arg_def='rr')
-    def ldw(cpu: 'CPU', dst_reg: int, addr_reg: int):
+    def lda_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
+        """
+        lda.r dst, src - Load Data Address, address from Register
+
+        dst = addr ptr $RAM[src]
+        """
+        addr = cpu.registers[Register(addr_reg)]
+        cpu.registers[Register(dst_reg)] = cpu.ram.get_fmt('a', addr)
+        cpu._set_flags(cpu.registers[Register(dst_reg)])
+
+    @Operation(arg_def='rr')
+    def ldw_r(cpu: 'CPU', dst_reg: int, addr_reg: int):
         """
         ldw.r dst, src - Load Data Word, address from Register
 
