@@ -294,6 +294,20 @@ class Operations:
         cpu.call_stack.set_fmt('a', cpu.registers.RP, cpu.registers.IP)
         cpu.registers.IP += addr
 
+    @Operation(arg_def='a')
+    def call_r(cpu: 'CPU', reg: int):
+        """
+        call.r addr - CALL subroutine, Register
+
+        RP -= sizeof_addr
+        addr ptr $CALL_STACK[RP] = IP
+        IP = reg
+        """
+        addr_size = DataType.calcsize('a')
+        cpu.registers.RP -= addr_size
+        cpu.call_stack.set_fmt('a', cpu.registers.RP, cpu.registers.IP)
+        cpu.registers.IP = cpu.registers[Register(reg)]
+
     @Operation()
     def ret(cpu: 'CPU'):
         """
