@@ -256,6 +256,33 @@ class Operations:
         cpu.registers[Register(reg)] = cpu.ram.get_fmt('w', addr)
         cpu._set_flags(cpu.registers[Register(dst_reg)])
 
+    @Operation(arg_def='rr')
+    def stb_r(cpu: 'CPU', addr_reg: int, val_reg: int):
+        """
+        stb.r dst, val - STore Byte, value from Register
+
+        byte ptr $RAM[dst] = val
+        """
+        cpu.ram[cpu.registers[Register(addr_reg)]] = cpu.registers[Register(val_reg)]
+
+    @Operation(arg_def='rr')
+    def sta_r(cpu: 'CPU', addr_reg: int, val_reg: int):
+        """
+        sta.r dst, val - STore Address, value from Register
+
+        byte ptr $RAM[dst] = val
+        """
+        cpu.ram.set_fmt('a', cpu.registers[Register(addr_reg)], cpu.registers[Register(val_reg)])
+
+    @Operation(arg_def='rr')
+    def stw_r(cpu: 'CPU', addr_reg: int, val_reg: int):
+        """
+        sta.r dst, val - STore Word, value from Register
+
+        byte ptr $RAM[dst] = val
+        """
+        cpu.ram.set_fmt('w', cpu.registers[Register(addr_reg)], cpu.registers[Register(val_reg)])
+
     @Operation(arg_def='a')
     def jmp_rel(cpu: 'CPU', addr: int):
         """
