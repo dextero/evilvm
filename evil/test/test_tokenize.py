@@ -14,3 +14,20 @@ class TokenizeTest(unittest.TestCase):
         self.assertEqual(['foo', 'bar'], tokenize('foo bar'))
         self.assertEqual(['foo', 'bar'], tokenize('foo   bar'))
         self.assertEqual(['foo', 'bar'], tokenize('foo \t  \nbar'))
+
+    def test_preserves_whitespace_in_quotes(self):
+        self.assertEqual(['"foo \t\nbar"'], tokenize('"foo \t\nbar"'))
+        self.assertEqual(['"foo bar"', 'baz'], tokenize('"foo bar" baz'))
+        self.assertEqual(['"foo bar"', '"baz qux"'], tokenize('"foo bar" "baz qux"'))
+
+        self.assertEqual(["'foo \t\nbar'"], tokenize("'foo \t\nbar'"))
+        self.assertEqual(["'foo bar'", "baz"], tokenize("'foo bar' baz"))
+        self.assertEqual(["'foo bar'", "'baz qux'"], tokenize("'foo bar' 'baz qux'"))
+
+    def test_escapes_quotes_with_backslash(self):
+        self.assertEqual(['"foo bar" "baz qux"'], tokenize('"foo bar\" \"baz qux"'))
+        self.assertEqual(["'foo bar' 'baz qux'"], tokenize("'foo bar\' \'baz qux'"))
+
+    def test_allows_unclosed_quotes(self):
+        self.assertEqual(['"foo bar'], tokenize('"foo bar'))
+        self.assertEqual(["'foo bar"], tokenize("'foo bar"))
