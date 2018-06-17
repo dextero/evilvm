@@ -487,6 +487,11 @@ class Operations:
             cpu.registers.IP += addr
 
     @Operation(arg_def='a')
+    def jne_rel(cpu: 'CPU', addr: int):
+        if not (cpu.registers.F & Flag.Zero):
+            cpu.registers.IP += addr
+
+    @Operation(arg_def='a')
     def ja_rel(cpu: 'CPU', addr: int):
         if cpu.registers.F & Flag.Greater:
             cpu.registers.IP += addr
