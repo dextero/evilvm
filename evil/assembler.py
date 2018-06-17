@@ -309,8 +309,11 @@ class Assembler:
         self._reset()
 
         instructions = source.split('\n')
-        for instr in instructions:
-            self._append_instruction(instr)
+        for lineno, instr in enumerate(instructions, start=1):
+            try:
+                self._append_instruction(instr)
+            except Exception as err:
+                raise SyntaxError('Error while parsing line %d (%s)' % (lineno, instr))
 
         mem = self._compile()
         self._log_source()
