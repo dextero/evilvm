@@ -1,5 +1,6 @@
 import enum
 import logging
+import time
 from typing import List, Any, NamedTuple, Callable
 import sys
 
@@ -575,8 +576,12 @@ class CPU:
         self.gpu = GPU(width=80, height=24)
 
         try:
+            instructions_executed = 0
+            start_time = time.time()
+
             while True:
                 try:
+                    instructions_executed += 1
                     idx = self.registers.IP
 
                     try:
@@ -601,6 +606,8 @@ class CPU:
             print(self)
 
         self.gpu.refresh(force=True)
+
+        logging.info('%f instructions/s', instructions_executed / (time.time() - start_time))
 
     def __str__(self):
         return ('--- REGISTERS ---\n'
