@@ -8,6 +8,15 @@ INNER_HEIGHT = HEIGHT - 2
 
 MAP = 0
 MAP_END = WIDTH * HEIGHT
+
+FIELD_WALL = 0
+FIELD_EMPTY = 1
+FIELD_SNAKE_RIGHT = 2
+FIELD_SNAKE_UP = 3
+FIELD_SNAKE_LEFT = 4
+FIELD_SNAKE_DOWN = 5
+FIELD_SNAKE_END = 6
+FIELD_FRUIT = 7
 ; 0 - wall
 ; 1 - empty field
 ; 2 - snake, next segment right
@@ -17,7 +26,7 @@ MAP_END = WIDTH * HEIGHT
 ; 6 - snake, no next segment
 ; 7 - fruit
 ;
-; e.g.: 
+; e.g.:
 ;
 ; XXXXXXXXX 000000000
 ; X       X 011111110
@@ -34,9 +43,52 @@ SNAKE_HEAD_X = MAP_END + 2
 SNAKE_HEAD_Y = MAP_END + 3
 
 start:
-    call.rel draw_border
-    call.rel draw_snake
+    call.rel reset
+    call.rel draw_board
+    ;call.rel draw_snake
     halt
+
+
+reset_wall_row:
+    movw.i2r c, WIDTH
+
+reset_wall_row_next:
+    movb.i2r b, FIELD_WALL
+    stb.r a, b
+    add.b a, 1
+    loop.rel reset_wall_row_next
+
+    ret
+
+
+reset:
+    movb.i2r a, MAP
+    call.rel reset_wall_row
+
+    movb.i2r c, HEIGHT
+
+reset_row:
+    push c
+     movb.i2r c, FIELD_WALL
+     stb.r a, c
+
+     movb.i2r b, FIELD_EMPTY
+     movb.i2r c, WIDTH - 2
+reset_row_inner_next:
+     add.b a, 1
+     stb.r a, b
+     loop.rel reset_row_inner_next
+
+     add.b a, 1
+     movb.i2r c, FIELD_WALL
+     stb.r a, c
+    pop c
+
+    loop.rel reset_row
+    call.rel reset_wall_row
+
+    ret
+
 
 ; A, B - x/y position of the left end
 ; C - length
@@ -113,6 +165,35 @@ draw_border:
     call.rel draw_vertical_line
 
     ret
+
+
+draw_board_char_table:
+    db "?X -|-|.@"
+
+
+draw_board:
+    movb.i2r a, 0
+    movb.i2r b, 0
+    seek a, b
+
+    movb.i2r c, HEIGHT
+draw_board_row:
+    push c
+     movb.i2r c, WIDTH
+
+draw_board_char:
+     add.b a, 1
+     ldb.r b, a
+     add.w b, draw_board_char_table
+     lpb.r a, b
+     out
+     loop.rel draw_board_char
+
+    pop c
+    loop.rel draw_board_row
+
+    ret
+
 
 ; c - next direction
 draw_snake_segment_advance:
