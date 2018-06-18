@@ -2,6 +2,7 @@
 Utility functions that do not fit elsewhere.
 """
 
+import itertools
 import string
 from typing import Sequence, Optional, List, T
 
@@ -89,3 +90,53 @@ def tokenize(text: str) -> List[str]:
     if curr_token:
         tokens.append(curr_token)
     return tokens
+
+
+def tokenize(text: str) -> List[str]:
+    IDENTIFIER_CHARS = string.ascii_lowercase + string.ascii_uppercase + '_'
+    def parse_escape(text: str):
+        if not text:
+            return 0
+        if text[0] == 'x':
+            return 1 + parse_while_matches(text[1:], string.hexdigits)
+        return 1
+
+    def parse_quote(text: str, quote_char: str):
+        idx = 0
+        quote = ''
+        while idx < len(text):
+            size = 1
+            if text[idx] == '\\':
+                size += parse_escape(text[1:])
+                quote += eval("'%s'" % text[idx:idx+size])
+            elif text[idx] == quote_char:
+                return quote + text[idx:idx+size], idx + size
+            else:
+                quote += text[idx]
+            idx += size
+
+        return quote, len(text)
+
+    def parse_while_matches(text: str, valid: str):
+        return len(list((itertools.takewhile(lambda c: c in valid, text))))
+
+    result = []
+    idx = 0
+    while idx < len(text):
+        size = 1
+        if text[idx] in ('"', "'"):
+            tok, tok_size = parse_quote(text[idx+1:], text[idx])
+            size += tok_size
+            result.append(text[idx] + tok)
+        elif text[idx] in string.punctuation:
+            result.append(text[idx:idx+size])
+        elif text[idx] in IDENTIFIER_CHARS:
+            size += parse_while_matches(text[idx+1:], IDENTIFIER_CHARS)
+            result.append(text[idx:idx+size])
+        elif text[idx].isspace():
+            size += parse_while_matches(text[idx+1:], string.whitespace)
+        else:
+            raise ValueError('ಠ_ಠ')
+        idx += size
+
+    return result

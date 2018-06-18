@@ -25,9 +25,14 @@ class TokenizeTest(unittest.TestCase):
         self.assertEqual(["'foo bar'", "'baz qux'"], tokenize("'foo bar' 'baz qux'"))
 
     def test_escapes_quotes_with_backslash(self):
-        self.assertEqual(['"foo bar" "baz qux"'], tokenize('"foo bar\" \"baz qux"'))
-        self.assertEqual(["'foo bar' 'baz qux'"], tokenize("'foo bar\' \'baz qux'"))
+        self.assertEqual(['"foo bar" "baz qux"'], tokenize(r'"foo bar\" \"baz qux"'))
+        self.assertEqual(["'foo bar' 'baz qux'"], tokenize(r"'foo bar\' \'baz qux'"))
 
     def test_allows_unclosed_quotes(self):
         self.assertEqual(['"foo bar'], tokenize('"foo bar'))
         self.assertEqual(["'foo bar"], tokenize("'foo bar"))
+
+    def test_separates_punctuation(self):
+        self.assertEqual(['foo', ',', 'bar'], tokenize('foo, bar'))
+        self.assertEqual(['(', 'foo', 'bar', ')'], tokenize('(foo bar)'))
+        self.assertEqual(['foo', '-', '>', '*', 'bar'], tokenize('foo->*bar'))
