@@ -1,9 +1,10 @@
 import string
 
-from typing import NamedTuple, List, Union, Callable, Optional
+from typing import NamedTuple, List, Union, Callable, Optional, Mapping
 
-from evil.cpu import Register
+from evil.cpu import Register, CPU, Operation
 from evil.utils import tokenize
+from evil.memory import DataType
 
 
 IDENTIFIER_CHARS = string.ascii_letters + string.digits + '_.'
@@ -105,9 +106,12 @@ class Statement:
         if matches(tokens, [Match.identifier, ':']):
             return Label(tokens[0])
         if matches(tokens[:2], [Match.identifier, '=']):
-            return ConstantDefinition(tokens[0], Expression.build(tokens))
+            return ConstantDefinition(tokens[0], Expression.build(tokens[2:]))
         if matches(tokens[:1], [Match.identifier]):
-            return Instruction(tokens[0], ArgumentList.build(tokens[1:]))
+            if tokens[0] in Data.DATATYPES:
+                return Data.build(tokens)
+            else:
+                return Instruction.build(tokens)
         if matches(tokens[:1], [';']):
             return None
         raise ValueError('unable to parse statement: %s', text)
@@ -141,7 +145,7 @@ class Expression:
             except ValueError:
                 pass
             if matches(tokens, [Match.character]):
-                return CharacterExpression(tokens[0])
+                return CharacterExpression(eval(tokens[0]))
             if matches(tokens, [Match.identifier]):
                 return ConstantExpression(tokens[0])
             raise ValueError('dafuq? %s', tokens[0])
@@ -155,12 +159,12 @@ class Expression:
             op_token = tokens[len(lhs_tokens) + 2] if len(lhs_tokens) + 2 < len(tokens) else None
             rhs_tokens = tokens[len(lhs_tokens) + 3:]
         else:
-            lhs_tokens = tokens[0]
-            op_token = None
-            rhs_tokens = []
+            lhs_tokens = tokens[:-2]
+            op_token = tokens[-2]
+            rhs_tokens = tokens[-1]
 
-        if not op_token and not rhs_tokens:
-            return Expression.build(lhs_tokens)
+        if not op_token and not lhs_tokens:
+            return Expression.build(rhs_tokens)
         else:
             return BinaryExpression(Expression.build(lhs_tokens),
                                     op_token,
@@ -194,12 +198,32 @@ class BinaryExpression(NamedTuple, Expression):
     operator: str
     rhs: Expression
 
-
-class ArgumentList(NamedTuple):
+class ExpressionList(NamedTuple):
     """
     EXPR [, EXPR]*
     "foo"
-    ArgumentList [, ArgumentList]*
+    """
+    subexpressions: List[Expression]
+
+    @staticmethod
+    def build(tokens: List[str]):
+        args = []
+
+        for group in comma_separated_groups(tokens):
+            if matches(group, [Match.string_literal]):
+                args += [CharacterExpression(c) for c in group[0]]
+            else:
+                args.append(Expression.build(group))
+
+        return ExpressionList(args)
+
+    def __iter__(self):
+        return iter(self.subexpressions)
+
+
+class ArgumentList(NamedTuple):
+    """
+    Like ExpressionList, but can contain register references
     """
     arguments: List[Union[Register, Expression]]
 
@@ -213,7 +237,7 @@ class ArgumentList(NamedTuple):
                     args.append(Register.by_name(group[0].upper()))
             except:
                 if matches(group, [Match.string_literal]):
-                    args += [ord(c) for c in group[0]]
+                    args += [CharacterExpression(c) for c in group[0]]
                 else:
                     args.append(Expression.build(group))
 
@@ -222,7 +246,27 @@ class ArgumentList(NamedTuple):
 
 class Instruction(NamedTuple, Statement):
     """ foo bar, baz """
-    mnemonic: str
+    operation: Operation
     args: ArgumentList
 
+    @staticmethod
+    def build(tokens: List[str]):
+        return Instruction(CPU.OPERATIONS_BY_MNEMONIC[tokens[0]],
+                           ArgumentList.build(tokens[1:]))
 
+
+class Data(NamedTuple, Statement):
+    """ db/a/w ARGUMENT_LIST """
+    datatype: DataType
+    values: ArgumentList
+
+    DATATYPES = {
+        'db': DataType.from_fmt('b'),
+        'da': DataType.from_fmt('a'),
+        'dw': DataType.from_fmt('w'),
+    }
+
+    @staticmethod
+    def build(tokens: List[str]):
+        return Data(Data.DATATYPES[tokens[0]],
+                    ExpressionList.build(tokens[1:]))

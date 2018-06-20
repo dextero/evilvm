@@ -60,40 +60,10 @@ def make_bytes_dump(data: List[int],
                           for idx, (line, printable) in enumerate(zip(lines, printable_lines)))
     return '\n'.join(lines_with_offsets)
 
-def tokenize(text: str) -> List[str]:
-    tokens = []
-
-    in_quote = None
-    escape = False
-    escape_hex = None
-    curr_token = ''
-    for c in text:
-        if escape:
-            escape = False
-            if c not in ('"', "'"):
-                curr_token += '\\'
-        elif c == '\\':
-            escape = True
-            continue
-        elif c == '"' and in_quote in (None, '"'):
-            in_quote = not in_quote
-        elif c == "'" and in_quote in (None, "'"):
-            in_quote = not in_quote
-        elif not in_quote and c.isspace():
-            if curr_token:
-                tokens.append(curr_token)
-            curr_token = ''
-            continue
-
-        curr_token += c
-
-    if curr_token:
-        tokens.append(curr_token)
-    return tokens
-
 
 def tokenize(text: str) -> List[str]:
-    IDENTIFIER_CHARS = string.ascii_lowercase + string.ascii_uppercase + '_'
+    IDENTIFIER_CHARS = string.ascii_lowercase + string.ascii_uppercase + string.digits + '_.'
+
     def parse_escape(text: str):
         if not text:
             return 0
@@ -108,7 +78,7 @@ def tokenize(text: str) -> List[str]:
             size = 1
             if text[idx] == '\\':
                 size += parse_escape(text[1:])
-                quote += eval("'%s'" % text[idx:idx+size])
+                quote += text[idx:idx+size]
             elif text[idx] == quote_char:
                 return quote + text[idx:idx+size], idx + size
             else:
@@ -136,7 +106,7 @@ def tokenize(text: str) -> List[str]:
         elif text[idx].isspace():
             size += parse_while_matches(text[idx+1:], string.whitespace)
         else:
-            raise ValueError('ಠ_ಠ')
+            raise ValueError('ಠ_ಠ: %s', text[idx])
         idx += size
 
     return result
