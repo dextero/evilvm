@@ -285,13 +285,13 @@ class Operations:
         cpu.ram.set_fmt('w', cpu.registers[Register(addr_reg)], cpu.registers[Register(val_reg)])
 
     @Operation(arg_def='a')
-    def jmp_rel(cpu: 'CPU', addr: int):
+    def jmp(cpu: 'CPU', addr: int):
         """
-        jmp.rel IMM_ADDR_REL - unconditional JuMP, RELative
+        jmp.rel IMM_ADDR - unconditional JuMP
 
-        IP += IMM_ADDR_REL
+        IP = IMM_ADDR
         """
-        cpu.registers.IP += addr
+        cpu.registers.IP = addr
 
     @Operation()
     def out(cpu: 'CPU'):
@@ -309,9 +309,9 @@ class Operations:
                      y=cpu.registers[Register(y_reg)])
 
     @Operation(arg_def='a')
-    def call_rel(cpu: 'CPU', addr: int):
+    def call(cpu: 'CPU', addr: int):
         """
-        call.rel addr - CALL subroutine, RELative
+        call addr - CALL subroutine
 
         RP -= sizeof_addr
         addr ptr $CALL_STACK[RP] = IP
@@ -320,7 +320,7 @@ class Operations:
         addr_size = DataType.calcsize('a')
         cpu.registers.RP -= addr_size
         cpu.call_stack.set_fmt('a', cpu.registers.RP, cpu.registers.IP)
-        cpu.registers.IP += addr
+        cpu.registers.IP = addr
 
     @Operation(arg_def='r')
     def call_r(cpu: 'CPU', reg: int):
@@ -482,43 +482,43 @@ class Operations:
         cpu._set_flags(cpu.registers[Register(reg_a)] - cpu.registers[Register(reg_b)])
 
     @Operation(arg_def='a')
-    def je_rel(cpu: 'CPU', addr: int):
+    def je(cpu: 'CPU', addr: int):
         if cpu.registers.F & Flag.Zero:
-            cpu.registers.IP += addr
+            cpu.registers.IP = addr
 
     @Operation(arg_def='a')
-    def jne_rel(cpu: 'CPU', addr: int):
+    def jne(cpu: 'CPU', addr: int):
         if not (cpu.registers.F & Flag.Zero):
-            cpu.registers.IP += addr
+            cpu.registers.IP = addr
 
     @Operation(arg_def='a')
-    def ja_rel(cpu: 'CPU', addr: int):
+    def ja(cpu: 'CPU', addr: int):
         if cpu.registers.F & Flag.Greater:
-            cpu.registers.IP += addr
+            cpu.registers.IP = addr
 
     @Operation(arg_def='a')
-    def jae_rel(cpu: 'CPU', addr: int):
+    def jae(cpu: 'CPU', addr: int):
         if cpu.registers.F & (Flag.Zero | Flag.Greater):
-            cpu.registers.IP += addr
+            cpu.registers.IP = addr
 
     @Operation(arg_def='a')
-    def jb_rel(cpu: 'CPU', addr: int):
+    def jb(cpu: 'CPU', addr: int):
         if not (cpu.registers.F & (Flag.Zero | Flag.Greater)):
-            cpu.registers.IP += addr
+            cpu.registers.IP = addr
 
     @Operation(arg_def='a')
-    def jbe_rel(cpu: 'CPU', addr: int):
+    def jbe(cpu: 'CPU', addr: int):
         if not (cpu.registers.F & Flag.Greater):
-            cpu.registers.IP += addr
+            cpu.registers.IP = addr
 
     @Operation(arg_def='a')
-    def loop_rel(cpu: 'CPU', addr: int):
+    def loop(cpu: 'CPU', addr: int):
         """
-        loop.rel IMM_ADDR_REL
+        loop IMM_ADDR
 
         if C > 0:
             C -= 1
-            IP += IMM_ADDR_REL
+            IP += IMM_ADDR
         """
         if cpu.registers.C > 0:
             cpu.registers.C -= 1

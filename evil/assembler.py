@@ -93,6 +93,8 @@ class Assembler:
             assert stmt.name not in self._constants
             self._constants[stmt.name] = self._curr_offset
             stmt = None
+        elif isinstance(stmt, Data):
+            self._curr_offset += stmt.datatype.size_bytes * len(stmt.values.subexpressions)
         elif isinstance(stmt, Instruction):
             self._curr_offset += stmt.operation.size_bytes
 

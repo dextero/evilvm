@@ -1,14 +1,14 @@
 start:
     movw.i2r c, hello
-    call.rel print
-    jmp.rel start
+    call print
+    jmp start
 
 print:
     lpb.r a, c
-    je.rel print_done
+    je print_done
     out
     add.b c, 1
-    jmp.rel print
+    jmp print
 print_done:
     ret
 
