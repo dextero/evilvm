@@ -211,7 +211,7 @@ class ExpressionList(NamedTuple):
 
         for group in comma_separated_groups(tokens):
             if matches(group, [Match.string_literal]):
-                args += [CharacterExpression(c) for c in group[0]]
+                args += [CharacterExpression(c) for c in group[0][1:-1]]
             else:
                 args.append(Expression.build(group))
 
@@ -237,7 +237,7 @@ class ArgumentList(NamedTuple):
                     args.append(Register.by_name(group[0].upper()))
             except:
                 if matches(group, [Match.string_literal]):
-                    args += [CharacterExpression(c) for c in group[0]]
+                    args += [CharacterExpression(c) for c in group[0][1:-1]]
                 else:
                     args.append(Expression.build(group))
 
