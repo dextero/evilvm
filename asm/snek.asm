@@ -43,9 +43,9 @@ SNAKE_HEAD_X = MAP_END + 2
 SNAKE_HEAD_Y = MAP_END + 3
 
 start:
-    call.rel reset
-    call.rel draw_board
-    ;call.rel draw_snake
+    call reset
+    call draw_board
+    ;call draw_snake
     halt
 
 
@@ -56,7 +56,7 @@ start:
 memset:
     stb.r a, b
     add.b a, 1
-    loop.rel memset
+    loop memset
     ret
 
 
@@ -65,26 +65,26 @@ reset:
 
     movb.i2r b, FIELD_WALL
     movb.i2r c, WIDTH
-    call.rel memset
+    call memset
 
     movb.i2r c, HEIGHT - 2
 reset_middle_next:
     push c
      movb.i2r c, 1
-     call.rel memset
+     call memset
 
      movb.i2r b, FIELD_EMPTY
      movb.i2r c, WIDTH - 2
-     call.rel memset
+     call memset
 
      movb.i2r b, FIELD_WALL
      movb.i2r c, 1
-     call.rel memset
+     call memset
     pop c
-    loop.rel reset_middle_next
+    loop reset_middle_next
 
     movb.i2r c, WIDTH
-    call.rel memset
+    call memset
 
     ret
 
@@ -98,7 +98,7 @@ draw_horizontal_line:
 
 draw_horizontal_line_next:
     out
-    loop.rel draw_horizontal_line_next
+    loop draw_horizontal_line_next
 
     ret
 
@@ -115,7 +115,7 @@ draw_vertical_line_next:
     pop a
     add.b b, 1
     seek a, b
-    loop.rel draw_vertical_line_next
+    loop draw_vertical_line_next
 
     ret
     
@@ -146,22 +146,22 @@ draw_border:
     movb.i2r a, 1
     movb.i2r b, 0
     movb.i2r c, MAX_X - 1
-    call.rel draw_horizontal_line
+    call draw_horizontal_line
 
     movb.i2r a, 1
     movb.i2r b, MAX_Y
     movb.i2r c, MAX_X - 1
-    call.rel draw_horizontal_line
+    call draw_horizontal_line
 
     movb.i2r a, 0
     movb.i2r b, 1
     movb.i2r c, MAX_Y - 1
-    call.rel draw_vertical_line
+    call draw_vertical_line
 
     movb.i2r a, MAX_X
     movb.i2r b, 1
     movb.i2r c, MAX_Y - 1
-    call.rel draw_vertical_line
+    call draw_vertical_line
 
     ret
 
@@ -186,10 +186,10 @@ draw_board_char:
      add.w b, draw_board_char_table
      lpb.r a, b
      out
-     loop.rel draw_board_char
+     loop draw_board_char
 
     pop c
-    loop.rel draw_board_row
+    loop draw_board_row
 
     ret
 
@@ -240,10 +240,10 @@ draw_snake_segment:
 get_next_snake_segment:
     ; TODO: constant
     cmp.b c, 2
-    jb.rel draw_snake_segment_fail
+    jb draw_snake_segment_fail
 
     cmp.b c, 5
-    ja.rel draw_snake_segment_fail
+    ja draw_snake_segment_fail
 
     ; TODO: constant
     sub.b c, 2
@@ -251,7 +251,7 @@ get_next_snake_segment:
     add.w c, draw_snake_segment_advance
     call.r c
 
-    call.rel xy_to_offset
+    call xy_to_offset
     ret
 
 draw_snake_segment_fail:
@@ -275,19 +275,19 @@ draw_snake:
     movb.i2r a, 'o'
     out
 
-    call.rel xy_to_offset
+    call xy_to_offset
     ; TODO: should it be valid?
     ldb.r c, c
 
 draw_snake_next:
-    call.rel get_next_snake_segment
+    call get_next_snake_segment
 
     ; TODO: constant
     cmp.b c, 6
-    jae.rel draw_snake_end
+    jae draw_snake_end
 
-    call.rel draw_snake_segment
-    jmp.rel draw_snake_next
+    call draw_snake_segment
+    jmp draw_snake_next
 
 draw_snake_end:
     ret
