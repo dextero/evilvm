@@ -49,43 +49,42 @@ start:
     halt
 
 
-reset_wall_row:
-    movw.i2r c, WIDTH
-
-reset_wall_row_next:
-    movb.i2r b, FIELD_WALL
+; IN:
+; a - address
+; b - fill
+; c - size, bytes; >0
+memset:
     stb.r a, b
     add.b a, 1
-    loop.rel reset_wall_row_next
-
+    loop.rel memset
     ret
 
 
 reset:
     movb.i2r a, MAP
-    call.rel reset_wall_row
 
-    movb.i2r c, HEIGHT
+    movb.i2r b, FIELD_WALL
+    movb.i2r c, WIDTH
+    call.rel memset
 
-reset_row:
+    movb.i2r c, HEIGHT - 2
+reset_middle_next:
     push c
-     movb.i2r c, FIELD_WALL
-     stb.r a, c
+     movb.i2r c, 1
+     call.rel memset
 
      movb.i2r b, FIELD_EMPTY
      movb.i2r c, WIDTH - 2
-reset_row_inner_next:
-     add.b a, 1
-     stb.r a, b
-     loop.rel reset_row_inner_next
+     call.rel memset
 
-     add.b a, 1
-     movb.i2r c, FIELD_WALL
-     stb.r a, c
+     movb.i2r b, FIELD_WALL
+     movb.i2r c, 1
+     call.rel memset
     pop c
+    loop.rel reset_middle_next
 
-    loop.rel reset_row
-    call.rel reset_wall_row
+    movb.i2r c, WIDTH
+    call.rel memset
 
     ret
 
