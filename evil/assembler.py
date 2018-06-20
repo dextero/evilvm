@@ -122,7 +122,7 @@ class Assembler:
                                                already_resolved | set(expr.name))
                 self._constants[expr.name] = val
             else:
-                print('alredy resolved: %r, %s' % (self._constants[expr.name], val))
+                logging.debug('alredy resolved: %s = %s' % (expr.name, val))
             logging.debug('ConstantExpression %s' % (val,))
             return val
         elif isinstance(expr, UnaryExpression):
@@ -158,7 +158,6 @@ class Assembler:
 
             prev_ip = curr_ip
 
-            print(line)
             if isinstance(line.statement, Data):
                 for value in line.statement.values:
                     mem.append(self._resolve_expression(value),
@@ -181,11 +180,9 @@ class Assembler:
                                    op.args_endianness)
                     else:
                         val = self._resolve_expression(arg)
-                        print(val)
                         mem.append(self._resolve_expression(arg),
                                    arg_datatype,
                                    op.args_endianness)
-                        print('kurwa')
             else:
                 raise AssertionError('unhandled IR type: %s' % type(line.statement).__name__)
 
