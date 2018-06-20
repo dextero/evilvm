@@ -247,7 +247,7 @@ get_next_snake_segment:
 
     ; TODO: constant
     sub.b c, 2
-    mul.b c, sizeof(a)
+    mul.b c, sizeof a
     add.w c, draw_snake_segment_advance
     call.r c
 

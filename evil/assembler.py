@@ -129,10 +129,10 @@ class Assembler:
             logging.debug('UnaryExpression: %s' % (expr,))
             if expr.operator == 'sizeof':
                 assert isinstance(expr.operand, ConstantExpression)
-                return DataType(expr.operand.name).size_bytes
+                return DataType.from_fmt(expr.operand.name).size_bytes
             elif expr.operator == 'alignof':
                 assert isinstance(expr.operand, ConstantExpression)
-                return DataType(expr.operand.name).alignment
+                return DataType.from_fmt(expr.operand.name).alignment
             else:
                 return eval(expr.operator + str(self._resolve_expression(expr.operand)))
         elif isinstance(expr, BinaryExpression):
