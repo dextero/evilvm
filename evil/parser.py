@@ -235,11 +235,14 @@ class ArgumentList(NamedTuple):
             try:
                 if len(group) == 1:
                     args.append(Register.by_name(group[0].upper()))
+                    continue
             except:
-                if matches(group, [Match.string_literal]):
-                    args += [CharacterExpression(c) for c in eval(group[0])]
-                else:
-                    args.append(Expression.build(group))
+                pass
+
+            if matches(group, [Match.string_literal]):
+                args += [CharacterExpression(c) for c in eval(group[0])]
+            else:
+                args.append(Expression.build(group))
 
         return ArgumentList(args)
 
