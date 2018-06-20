@@ -1,6 +1,7 @@
 import unittest
 
 from evil.parser import *
+from evil.cpu import Operations
 
 class ParserTest(unittest.TestCase):
     def test_parse_label(self):
@@ -42,3 +43,20 @@ class ParserTest(unittest.TestCase):
                                               CharacterExpression('\x42')])),
                          Statement.parse('db "ab\x42"'))
 
+    def test_parse_instruction(self):
+        self.assertEqual(Instruction(Operations.movb_i2r,
+                                     ArgumentList([Register.A,
+                                                   NumericExpression(1)])),
+                         Statement.parse('movb.i2r a, 1'))
+
+        self.assertEqual(Instruction(Operations.movb_i2r,
+                                     ArgumentList([Register.A,
+                                                   ConstantExpression('WIDTH')])),
+                         Statement.parse('movb.i2r a, WIDTH'))
+
+        self.assertEqual(Instruction(Operations.movb_i2r,
+                                     ArgumentList([Register.A,
+                                                   BinaryExpression(ConstantExpression('WIDTH'),
+                                                                    '-',
+                                                                    NumericExpression(1))])),
+                         Statement.parse('movb.i2r a, WIDTH - 1'))

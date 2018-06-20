@@ -161,7 +161,7 @@ class Expression:
         else:
             lhs_tokens = tokens[:-2]
             op_token = tokens[-2]
-            rhs_tokens = tokens[-1]
+            rhs_tokens = tokens[-1:]
 
         if not op_token and not lhs_tokens:
             return Expression.build(rhs_tokens)
