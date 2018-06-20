@@ -518,11 +518,11 @@ class Operations:
 
         if C > 0:
             C -= 1
-            IP += IMM_ADDR
+            IP = IMM_ADDR
         """
         if cpu.registers.C > 0:
             cpu.registers.C -= 1
-            cpu.registers.IP += addr
+            cpu.registers.IP = addr
 
     @Operation()
     def halt(cpu: 'CPU'):
