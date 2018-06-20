@@ -36,3 +36,6 @@ class TokenizeTest(unittest.TestCase):
         self.assertEqual(['foo', ',', 'bar'], tokenize('foo, bar'))
         self.assertEqual(['(', 'foo', 'bar', ')'], tokenize('(foo bar)'))
         self.assertEqual(['foo', '-', '>', '*', 'bar'], tokenize('foo->*bar'))
+
+    def test_number(self):
+        self.assertEqual(['42'], tokenize('42'))
