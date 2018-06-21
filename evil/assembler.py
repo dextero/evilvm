@@ -140,7 +140,7 @@ class Assembler:
         elif isinstance(expr, BinaryExpression):
             logging.debug('BinaryExpression: %s' % (expr,))
             return eval(str(self._resolve_expression(expr.lhs))
-                        + expr.operator
+                        + expr.operator.replace('/', '//')  # TODO: hack for integer division
                         + str(self._resolve_expression(expr.rhs)))
         else:
             raise AssertionError('unknown expression type: %r' % (expr,))
