@@ -1,4 +1,5 @@
 import string
+import logging
 
 from typing import NamedTuple, List, Union, Callable, Optional, Mapping
 
@@ -34,7 +35,7 @@ def extract_parens(tokens: List[str]):
         '{': '}'
     }
 
-    stack = [tokens[0]]
+    stack = []
     for idx, tok in enumerate(tokens):
         if tok in PAIRS:
             stack.append(tok)
@@ -45,8 +46,62 @@ def extract_parens(tokens: List[str]):
                 raise ValueError('mismatched parens: expected %s, got %s' % (PAIRS[stack[-1]], tok))
 
         if not stack:
-            return tokens[1:idx]
+            return tokens[0:idx + 1]
     raise ValueError('mismatched parens - unclosed: %s' % stack)
+
+
+def build_expression_tree(tokens: List[str]):
+    logging.debug('build_expression_tree %s' % (tokens,))
+    tree = []
+    idx = 0
+
+    while idx < len(tokens):
+        if tokens[idx] == '(':
+            parens = extract_parens(tokens[idx:])
+            tree.append(build_expression_tree(parens[1:-1]))
+            idx += len(parens)
+        else:
+            tree.append(tokens[idx])
+            idx += 1
+
+    def parse_expression(text: Union[Expression, str]):
+        if not isinstance(text, str):
+            return text
+        try:
+            return NumericExpression(int(text, 0))
+        except ValueError:
+            pass
+        if Match.character(text):
+            return CharacterExpression(eval(text))
+        if Match.identifier(text):
+            return ConstantExpression(text)
+        return text
+
+    tree = [parse_expression(e) for e in tree]
+
+    for op_set in (('<<', '>>'),
+                   ('*', '/'),
+                   ('+', '-')):
+        idx = 0
+        while idx < len(tree) - 1:
+            if tree[idx] in op_set:
+                if idx == 0:
+                    tree[:2] = [UnaryExpression(tree[0], tree[1])]
+                else:
+                    tree[idx - 1:idx + 2] = [BinaryExpression(tree[idx - 1],
+                                                              tree[idx],
+                                                              tree[idx + 1])]
+            else:
+                idx += 1
+
+    logging.debug('tree = %s' % (tree,))
+
+    if len(tree) == 1:
+
+        tree = tree[0]
+
+    logging.debug('return = %s' % (tree,))
+    return tree
 
 
 def comma_separated_groups(tokens: List[str]):
@@ -139,36 +194,11 @@ class Label(NamedTuple, Statement):
 class Expression:
     @staticmethod
     def build(tokens: List[str]) -> 'Expression':
-        if len(tokens) == 1:
-            try:
-                return NumericExpression(int(tokens[0], 0))
-            except ValueError:
-                pass
-            if matches(tokens, [Match.character]):
-                return CharacterExpression(eval(tokens[0]))
-            if matches(tokens, [Match.identifier]):
-                return ConstantExpression(tokens[0])
-            raise ValueError('dafuq? %s', tokens[0])
-
-        if len(tokens) == 2:
-            return UnaryExpression(tokens[0], Expression.build(tokens[1]))
-
-        if tokens[0] == '(':
-            lhs_tokens = extract_parens(tokens)
-            # +2 for open/close paren
-            op_token = tokens[len(lhs_tokens) + 2] if len(lhs_tokens) + 2 < len(tokens) else None
-            rhs_tokens = tokens[len(lhs_tokens) + 3:]
-        else:
-            lhs_tokens = tokens[:-2]
-            op_token = tokens[-2]
-            rhs_tokens = tokens[-1:]
-
-        if not op_token and not lhs_tokens:
-            return Expression.build(rhs_tokens)
-        else:
-            return BinaryExpression(Expression.build(lhs_tokens),
-                                    op_token,
-                                    Expression.build(rhs_tokens))
+        try:
+            logging.debug('Expression.build: %s' % (tokens,))
+            return build_expression_tree(tokens)
+        except ValueError as err:
+            raise ValueError('unable to form a valid expression from tokens: %s' % (tokens,)) from err
 
 
 class NumericExpression(NamedTuple, Expression):
