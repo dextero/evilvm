@@ -28,7 +28,10 @@ def bytes_from_value(endianness: Endianness,
     """
     if endianness == Endianness.PDP and num_bytes % 2 != 0:
         raise ValueError('unable to encode PDP endian value on odd number of bytes')
-    assert value < 2**(char_bit * num_bytes)
+    if value >= 2**(char_bit * num_bytes):
+        raise ValueError('%d is too big to fit on %d %d-bit bytes (max: %d)'
+                         % (value, num_bytes, char_bit,
+                            2**(num_bytes * char_bit) - 1))
 
     negative = False
     if value < 0:

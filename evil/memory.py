@@ -78,7 +78,10 @@ class Memory:
     def __setitem__(self,
                     addr: int,
                     val: int):
-        assert val < 2**self.char_bit
+        if val >= 2**self.char_bit:
+            raise ValueError('%d is too big to fit in a single %d-bit byte (max: %d)'
+                             % (val, self.char_bit, 2**self.char_bit - 2))
+
         try:
             self._memory[addr] = val
         except IndexError as err:
