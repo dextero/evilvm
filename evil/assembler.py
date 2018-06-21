@@ -85,12 +85,14 @@ class Assembler:
         logging.debug('%-40s %s' % (line, stmt))
 
         if isinstance(stmt, ConstantDefinition):
-            assert stmt.name not in self._constants
+            if stmt.name in self._constants:
+                raise ValueError('multiple definitions of constant %s' % stmt.name)
             logging.debug('constant: %s = %s' % stmt)
             self._constants[stmt.name] = stmt.value
             stmt = None
         elif isinstance(stmt, Label):
-            assert stmt.name not in self._constants
+            if stmt.name in self._constants:
+                raise ValueError('multiple definitions of constant %s' % stmt.name)
             self._constants[stmt.name] = self._curr_offset
             stmt = None
         elif isinstance(stmt, Data):
