@@ -90,6 +90,15 @@ def tokenize(text: str) -> List[str]:
     def parse_while_matches(text: str, valid: str):
         return len(list((itertools.takewhile(lambda c: c in valid, text))))
 
+    def parse_punctuation(text: str):
+        multichar_operators  = { '>>', '<<' }
+
+        for op in multichar_operators:
+            if text.startswith(op):
+                return op, len(op)
+
+        return text[0], 1
+
     result = []
     idx = 0
     while idx < len(text):
@@ -99,7 +108,9 @@ def tokenize(text: str) -> List[str]:
             size += tok_size
             result.append(text[idx] + tok)
         elif text[idx] in string.punctuation:
-            result.append(text[idx:idx+size])
+            tok, tok_size = parse_punctuation(text[idx:])
+            size = tok_size
+            result.append(tok)
         elif text[idx] in IDENTIFIER_CHARS:
             size += parse_while_matches(text[idx+1:], IDENTIFIER_CHARS)
             result.append(text[idx:idx+size])

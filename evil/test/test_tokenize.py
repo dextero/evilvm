@@ -39,3 +39,9 @@ class TokenizeTest(unittest.TestCase):
 
     def test_number(self):
         self.assertEqual(['42'], tokenize('42'))
+
+    def test_bitshift(self):
+        self.assertEqual(['<<'], tokenize('<<'))
+        self.assertEqual(['>>'], tokenize('>>'))
+        self.assertEqual(['<<', '<'], tokenize('<<<'))
+        self.assertEqual(['>>', '>>', '>'], tokenize('>>>>>'))
