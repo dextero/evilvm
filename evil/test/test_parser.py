@@ -60,3 +60,28 @@ class ParserTest(unittest.TestCase):
                                                                     '-',
                                                                     NumericExpression(1))])),
                          Statement.parse('movb.i2r a, WIDTH - 1'))
+
+
+    def test_parse_expression_with_parens(self):
+        self.assertEqual(Instruction(Operations.movb_i2r,
+                                     ArgumentList([NumericExpression(1),
+                                                   BinaryExpression(NumericExpression(2),
+                                                                    '+',
+                                                                    NumericExpression(3))])),
+                         Statement.parse('movb.i2r (1), (2+3)'))
+
+        self.assertEqual(Instruction(Operations.movb_i2r,
+                                     ArgumentList([
+                                         NumericExpression(1),
+                                         BinaryExpression(
+                                             NumericExpression(2),
+                                             '+',
+                                             BinaryExpression(
+                                                 NumericExpression(3),
+                                                 '-',
+                                                 BinaryExpression(
+                                                     NumericExpression(4),
+                                                     '*',
+                                                     NumericExpression(5))))
+                                     ])),
+            Statement.parse('movb.i2r (((1))), (2+(3-(4)*5))'))
