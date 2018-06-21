@@ -9,32 +9,29 @@ INNER_HEIGHT = HEIGHT - 2
 MAP = 0
 MAP_END = WIDTH * HEIGHT
 
-FIELD_WALL = 1
-FIELD_EMPTY = 2
-FIELD_SNAKE_RIGHT = 3
-FIELD_SNAKE_UP = 4
-FIELD_SNAKE_LEFT = 5
-FIELD_SNAKE_DOWN = 6
-FIELD_SNAKE_END = 7
-FIELD_FRUIT = 8
-; 0 - wall
-; 1 - empty field
-; 2 - snake, next segment right
-; 3 - snake, next segment up
-; 4 - snake, next segment left
-; 5 - snake, next segment down
-; 6 - snake, no next segment
-; 7 - fruit
-;
-; e.g.:
-;
-; XXXXXXXXX 000000000
-; X       X 011111110
-; X  o--. X 011222510
-; X . F | X 016171510
-; X '---' X 013444410
-; X       X 011111110
-; XXXXXXXXX 000000000
+WALL = 0b1_000_000
+
+NONE  = 0b000
+RIGHT = 0b001
+UP    = 0b010
+LEFT  = 0b011
+DORN  = 0b100
+
+FROM_SHIFT = 0
+FROM       = 0b111 << FROM_SHIFT
+FROM_NONE  = NONE  << FROM_SHIFT
+FROM_RIGHT = RIGHT << FROM_SHIFT
+FROM_UP    = UP    << FROM_SHIFT
+FROM_LEFT  = LEFT  << FROM_SHIFT
+FROM_DOWN  = DOWN  << FROM_SHIFT
+
+TO_SHIFT = 3
+TO       = 0b111 << TO_SHIFT
+TO_NONE  = NONE  << TO_SHIFT
+TO_RIGHT = RIGHT << TO_SHIFT
+TO_UP    = UP    << TO_SHIFT
+TO_LEFT  = LEFT  << TO_SHIFT
+TO_DOWN  = DOWN  << TO_SHIFT
 
 APPLE_X = MAP_END + 0
 APPLE_Y = MAP_END + 1
@@ -69,7 +66,7 @@ memset_exit:
 reset:
     movb.i2r a, MAP
 
-    movb.i2r b, FIELD_WALL
+    movb.i2r b, WALL
     movb.i2r c, WIDTH
     call memset
 
@@ -79,11 +76,11 @@ reset_middle_next:
      movb.i2r c, 1
      call memset
 
-     movb.i2r b, FIELD_EMPTY
+     movb.i2r b, NONE
      movb.i2r c, WIDTH - 2
      call memset
 
-     movb.i2r b, FIELD_WALL
+     movb.i2r b, WALL
      movb.i2r c, 1
      call memset
     pop c
@@ -92,11 +89,31 @@ reset_middle_next:
     movb.i2r c, WIDTH
     call memset
 
+    movw.i2r a, (HEIGHT / 2 * WIDTH) + (WIDTH / 2)
+    movb.i2r b, FROM_LEFT | TO_NONE
+    stb.r a, b
+
+    sub.b a, 1
+    movb.i2r b, FROM_LEFT | TO_RIGHT
+    stb.r a, b
+
+    sub.b a, 1
+    movb.i2r b, FROM_NONE | TO_RIGHT
+    stb.r a, b
+
     ret
 
 
 draw_board_char_table:
-    db "?X -|-|.@"
+    db " <^>v   "
+    db "> \-/   "
+    db "v\ /|   "
+    db "<-/ \   "
+    db "^/|\    "
+    db "        "
+    db "        "
+    db "        "
+    db "X"
 
 
 draw_board:
