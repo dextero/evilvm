@@ -104,23 +104,17 @@ draw_board:
     movb.i2r b, 0
     seek a, b
 
-    movb.i2r c, HEIGHT
-draw_board_row:
-    push c
-     movb.i2r c, WIDTH
-
+    movb.i2r a, MAP
+    movw.i2r c, WIDTH * HEIGHT
 draw_board_char:
-     add.b a, 1
-     ldb.r b, a
-     add.w b, draw_board_char_table
-     push a
-      lpb.r a, b
-      out
-     pop a
-     loop draw_board_char
-
-    pop c
-    loop draw_board_row
+    ldb.r b, a
+    add.w b, draw_board_char_table
+    push a
+     lpb.r a, b
+     out
+    pop a
+    add.b a, 1
+    loop draw_board_char
 
     ret
 
