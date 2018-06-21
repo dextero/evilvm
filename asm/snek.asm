@@ -9,14 +9,14 @@ INNER_HEIGHT = HEIGHT - 2
 MAP = 0
 MAP_END = WIDTH * HEIGHT
 
-FIELD_WALL = 0
-FIELD_EMPTY = 1
-FIELD_SNAKE_RIGHT = 2
-FIELD_SNAKE_UP = 3
-FIELD_SNAKE_LEFT = 4
-FIELD_SNAKE_DOWN = 5
-FIELD_SNAKE_END = 6
-FIELD_FRUIT = 7
+FIELD_WALL = 1
+FIELD_EMPTY = 2
+FIELD_SNAKE_RIGHT = 3
+FIELD_SNAKE_UP = 4
+FIELD_SNAKE_LEFT = 5
+FIELD_SNAKE_DOWN = 6
+FIELD_SNAKE_END = 7
+FIELD_FRUIT = 8
 ; 0 - wall
 ; 1 - empty field
 ; 2 - snake, next segment right
@@ -52,11 +52,17 @@ start:
 ; IN:
 ; a - address
 ; b - fill
-; c - size, bytes; >0
+; c - size, bytes;
 memset:
+    cmp.b c, 0
+    je memset_exit
+
+memset_next:
     stb.r a, b
     add.b a, 1
-    loop memset
+    loop memset_next
+
+memset_exit:
     ret
 
 
@@ -184,8 +190,10 @@ draw_board_char:
      add.b a, 1
      ldb.r b, a
      add.w b, draw_board_char_table
-     lpb.r a, b
-     out
+     push a
+      lpb.r a, b
+      out
+     pop a
      loop draw_board_char
 
     pop c
