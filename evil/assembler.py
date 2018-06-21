@@ -154,42 +154,45 @@ class Assembler:
         mem = ExtendableMemory(self._char_bit)
 
         for line in self._intermediate:
-            logging.debug('compile: %s', line.source)
-            if not line.statement:
-                continue
+            try:
+                logging.debug('compile: %s', line.source)
+                if not line.statement:
+                    continue
 
-            prev_ip = curr_ip
+                prev_ip = curr_ip
 
-            if isinstance(line.statement, Data):
-                for value in line.statement.values:
-                    mem.append(self._resolve_expression(value),
-                               line.statement.datatype,
-                               Endianness.Big)
-            elif isinstance(line.statement, Instruction):
-                op = line.statement.operation
-                curr_ip = len(mem) + op.size_bytes
+                if isinstance(line.statement, Data):
+                    for value in line.statement.values:
+                        mem.append(self._resolve_expression(value),
+                                   line.statement.datatype,
+                                   Endianness.Big)
+                elif isinstance(line.statement, Instruction):
+                    op = line.statement.operation
+                    curr_ip = len(mem) + op.size_bytes
 
-                mem.append(op.opcode,
-                           DataType.from_fmt('b'),
-                           Endianness.Little)
+                    mem.append(op.opcode,
+                               DataType.from_fmt('b'),
+                               Endianness.Little)
 
-                for idx, arg in enumerate(line.statement.args.arguments):
-                    arg_datatype = DataType.from_fmt(op.arg_def[idx])
+                    for idx, arg in enumerate(line.statement.args.arguments):
+                        arg_datatype = DataType.from_fmt(op.arg_def[idx])
 
-                    if isinstance(arg, Register):
-                        mem.append(arg.value,
-                                   arg_datatype,
-                                   op.args_endianness)
-                    else:
-                        val = self._resolve_expression(arg)
-                        mem.append(self._resolve_expression(arg),
-                                   arg_datatype,
-                                   op.args_endianness)
-            else:
-                raise AssertionError('unhandled IR type: %s' % type(line.statement).__name__)
+                        if isinstance(arg, Register):
+                            mem.append(arg.value,
+                                       arg_datatype,
+                                       op.args_endianness)
+                        else:
+                            val = self._resolve_expression(arg)
+                            mem.append(self._resolve_expression(arg),
+                                       arg_datatype,
+                                       op.args_endianness)
+                else:
+                    raise AssertionError('unhandled IR type: %s' % type(line.statement).__name__)
 
-            curr_ip = len(mem)
-            line.bytecode[:] = mem[prev_ip:]
+                curr_ip = len(mem)
+                line.bytecode[:] = mem[prev_ip:]
+            except Exception as err:
+                raise Exception('could not assemble line: %s' % (line.source,)) from err
 
         return mem
 
