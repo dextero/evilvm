@@ -516,12 +516,12 @@ class Operations:
         """
         loop IMM_ADDR
 
+        C -= 1
         if C > 0:
-            C -= 1
             IP = IMM_ADDR
         """
+        cpu.registers.C -= 1
         if cpu.registers.C > 0:
-            cpu.registers.C -= 1
             cpu.registers.IP = addr
 
     @Operation()
