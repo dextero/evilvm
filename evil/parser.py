@@ -52,8 +52,13 @@ def extract_parens(tokens: List[str]):
 
 def build_expression_tree(tokens: List[str]):
     logging.debug('build_expression_tree %s' % (tokens,))
+
     tree = []
     idx = 0
+    OPERATOR_PRECEDENCE = (('sizeof', 'alignof'),
+                           ('<<', '>>', '|'),
+                           ('*', '/'),
+                           ('+', '-'))
 
     while idx < len(tokens):
         if tokens[idx] == '(':
@@ -73,15 +78,13 @@ def build_expression_tree(tokens: List[str]):
             pass
         if Match.character(text):
             return CharacterExpression(eval(text))
-        if Match.identifier(text):
+        if Match.identifier(text) and not any(text in ops for ops in OPERATOR_PRECEDENCE):
             return ConstantExpression(text)
         return text
 
     tree = [parse_expression(e) for e in tree]
 
-    for op_set in (('<<', '>>'),
-                   ('*', '/'),
-                   ('+', '-')):
+    for op_set in OPERATOR_PRECEDENCE:
         idx = 0
         while idx < len(tree) - 1:
             if tree[idx] in op_set:
