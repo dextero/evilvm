@@ -440,7 +440,7 @@ class Operations:
         cpu.registers[Register(reg)] *= immb
         cpu._set_flags(cpu.registers[Register(reg)])
 
-    @Operation(arg_def='rb')
+    @Operation(arg_def='rw')
     def mul_w(cpu: 'CPU', reg: int, immw: int):
         """
         mul.b dst, IMM_WORD - MULtiply Word, immediate
@@ -458,6 +458,36 @@ class Operations:
         dst -= src
         """
         cpu.registers[Register(dst)] *= cpu.registers[Register(src)]
+        cpu._set_flags(cpu.registers[Register(dst)])
+
+    @Operation(arg_def='rb')
+    def and_b(cpu: 'CPU', dst: int, immb: int):
+        """
+        and.b dst, IMM_BYTE - bitwise AND register with immediate Byte
+
+        dst &= IMM_BYTE
+        """
+        cpu.registers[Register(dst)] &= immb
+        cpu._set_flags(cpu.registers[Register(dst)])
+
+    @Operation(arg_def='rw')
+    def and_w(cpu: 'CPU', dst: int, immw: int):
+        """
+        and.w dst, IMM_WORD - bitwise AND register with immediate Word
+
+        dst &= IMM_WORD
+        """
+        cpu.registers[Register(dst)] &= immw
+        cpu._set_flags(cpu.registers[Register(dst)])
+
+    @Operation(arg_def='rr')
+    def and_r(cpu: 'CPU', dst: int, src: int):
+        """
+        and.r dst, src - bitwise AND registers
+
+        dst &= src
+        """
+        cpu.registers[Register(dst)] &= cpu.registers[Register(src)]
         cpu._set_flags(cpu.registers[Register(dst)])
 
     @Operation(arg_def='rw')
