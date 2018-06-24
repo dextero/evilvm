@@ -176,6 +176,10 @@ class Assembler:
                                DataType.from_fmt('b'),
                                Endianness.Little)
 
+                    if len(line.statement.args.arguments) != len(op.arg_def):
+                        raise SyntaxError('invalid number of arguments for operation %s: expected %d, got %d'
+                                          % (op.mnemonic, len(op.arg_def), len(line.statement.args.arguments)))
+
                     for idx, arg in enumerate(line.statement.args.arguments):
                         arg_datatype = DataType.from_fmt(op.arg_def[idx])
 
