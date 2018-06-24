@@ -57,9 +57,8 @@ class Assembler:
 
     This is a two-pass process:
     * First pass turns source into intermediate representation, i.e. a list of
-      Statements. During this pass, all labels and its positions are discovered
-      and noted in self._labels. Similarly, all constants are noted in
-      self._constants.
+      Statements. During this pass, all labels and constants are discovered
+      and noted in self._constants.
     * Second pass converts intermediate representation into final bytecode,
       filling in label and constant values if necessary.
     """
