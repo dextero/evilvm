@@ -56,7 +56,7 @@ def build_expression_tree(tokens: List[str]):
     tree = []
     idx = 0
     OPERATOR_PRECEDENCE = (('sizeof', 'alignof'),
-                           ('<<', '>>', '|'),
+                           ('<<', '>>', '|', '~'),
                            ('*', '/'),
                            ('+', '-'))
 

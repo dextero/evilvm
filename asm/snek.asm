@@ -39,6 +39,8 @@ APPLE_Y = MAP_END + 1
 SNAKE_HEAD_X = MAP_END + 2
 SNAKE_HEAD_Y = MAP_END + 3
 
+CURR_DIRECTION = MAP_END + 4
+
 start:
     call reset
     call draw_board
@@ -136,6 +138,81 @@ draw_board_char:
     ret
 
 
+advance_head:
+    ret
+
+
+offset_from_direction:
+    ; TODO: check for 1 <= a <= 4
+    sub.b a, 1
+    add.b offset_by_direction
+    ldb.r a, a
+    ret
+
+offset_by_direction:
+    db 1, -WIDTH, -1, WIDTH
+
+
+snake_update:
+    ; c = snake_head_idx
+    movw.i2r a, SNAKE_HEAD_X
+    ldb.r b, a
+    movw.i2r a, SNAKE_HEAD_Y
+    ldb.r c, a
+
+    mul.b c, WIDTH
+    add.r c, b
+
+    ; a = map[snake_head_idx]
+    ldb.r a, c
+
+    ; TODO: check for wall
+    ; update head
+    and.b a, TO
+    shr.b a, TO_SHIFT
+    push c
+     call offset_from_direction
+     add.r c, a
+     movb.m2r a, CURR_DIRECTION
+     stb.r c, a
+    pop c
+
+    ; a = a.from
+snake_update_next:
+    push c
+     ; a = map[curr_idx]
+     ldb.r a, c
+     ; TODO: check for wall?
+     ; cmp.b a, NONE - NONE == 0, redundant
+     je snake_update_end
+
+     and.b a, FROM
+     shr.b a, FROM_SHIFT
+     ; no 'from' direction, i.e. we're at the end
+     ; we need to store NONE at current and clear FROM in previous
+     je snake_update_end
+    ; discard previous offset
+    pop b
+
+    ; c += offset_from_direction(a)
+    call offset_from_direction
+    add.r c, a
+
+    jmp snake_update_next
+
+snake_update_end:
+    ; clear current, i.e. last segment
+    movb.i2r a, NONE
+    stb.r c, a
+    ; get previous offset, clear FROM field
+    pop c
+    ldb.r a
+    and.b a, ~FROM
+    stb.r c, a
+
+    ret
+
+
 ; c - next direction
 draw_snake_segment_advance:
     da draw_snake_segment_advance_right
@@ -210,8 +287,8 @@ xy_to_offset:
 
 
 draw_snake:
-    movb.m2r a, SNAKE_HEAD_X
-    movb.m2r b, SNAKE_HEAD_Y
+    movw.m2r a, SNAKE_HEAD_X
+    movw.m2r b, SNAKE_HEAD_Y
     seek a, b
 
     movb.i2r a, 'o'

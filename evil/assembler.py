@@ -131,7 +131,10 @@ class Assembler:
             logging.debug('UnaryExpression: %s' % (expr,))
             if expr.operator == 'sizeof':
                 assert isinstance(expr.operand, ConstantExpression)
-                return DataType.from_fmt(expr.operand.name).size_bytes
+                try:
+                    return DataType.from_fmt(expr.operand.name).size_bytes
+                except KeyError:
+                    return CPU.OPERATIONS_BY_MNEMONIC[expr.operand.name].size_bytes
             elif expr.operator == 'alignof':
                 assert isinstance(expr.operand, ConstantExpression)
                 return DataType.from_fmt(expr.operand.name).alignment

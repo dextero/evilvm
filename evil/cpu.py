@@ -490,6 +490,16 @@ class Operations:
         cpu.registers[Register(dst)] &= cpu.registers[Register(src)]
         cpu._set_flags(cpu.registers[Register(dst)])
 
+    @Operation(arg_def='rb')
+    def shr_b(cpu: 'CPU', dst: int, immb: int):
+        """
+        shr.b dst, IMM_BYTE - logical SHift Right by Byte bits
+
+        dst >>= IMM_BYTE
+        """
+        cpu.registers[Register(dst)] >>= immb
+        cpu._set_flags(cpu.registers[Register(dst)])
+
     @Operation(arg_def='rw')
     def cmp_b(cpu: 'CPU', reg: int, immb: int):
         """
