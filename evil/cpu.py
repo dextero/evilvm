@@ -153,7 +153,7 @@ class Operations:
 
         dst = byte ptr $RAM[IMM_ADDR]
         """
-        cpu.registers[Register(reg)] = cpu.ram[addr]
+        cpu.registers[Register(reg)] = cpu.ram.get_fmt('b', addr)
 
     @Operation(arg_def='ar')
     def movb_r2m(cpu: 'CPU', addr: int, reg: int):
@@ -162,7 +162,7 @@ class Operations:
 
         byte ptr $RAM[IMM_ADDR] = src
         """
-        cpu.ram[addr] = cpu.registers[Register(reg)]
+        cpu.ram.set_fmt('b', addr, cpu.registers[Register(reg)])
 
     @Operation(arg_def='rw')
     def movw_i2r(cpu: 'CPU', reg: int, immw: int):
@@ -199,7 +199,7 @@ class Operations:
         dst = byte ptr $PROGRAM[src]
         """
         addr = cpu.registers[Register(addr_reg)]
-        cpu.registers[Register(dst_reg)] = cpu.program[addr]
+        cpu.registers[Register(dst_reg)] = cpu.program.get_fmt('b', addr)
         cpu._set_flags(cpu.registers[Register(dst_reg)])
 
     @Operation(arg_def='rr')
@@ -232,7 +232,7 @@ class Operations:
         dst = byte ptr $RAM[src]
         """
         addr = cpu.registers[Register(addr_reg)]
-        cpu.registers[Register(dst_reg)] = cpu.ram[addr]
+        cpu.registers[Register(dst_reg)] = cpu.ram.get_fmt('b', addr)
         cpu._set_flags(cpu.registers[Register(dst_reg)])
 
     @Operation(arg_def='rr')
@@ -264,7 +264,7 @@ class Operations:
 
         byte ptr $RAM[dst] = val
         """
-        cpu.ram[cpu.registers[Register(addr_reg)]] = cpu.registers[Register(val_reg)]
+        cpu.ram.set_fmt('b', cpu.registers[Register(addr_reg)], cpu.registers[Register(val_reg)])
 
     @Operation(arg_def='rr')
     def sta_r(cpu: 'CPU', addr_reg: int, val_reg: int):
