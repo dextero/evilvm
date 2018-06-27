@@ -491,6 +491,36 @@ class Operations:
         cpu._set_flags(cpu.registers[Register(dst)])
 
     @Operation(arg_def='rb')
+    def or_b(cpu: 'CPU', dst: int, immb: int):
+        """
+        or.b dst, IMM_BYTE - bitwise OR register with immediate Byte
+
+        dst |= IMM_BYTE
+        """
+        cpu.registers[Register(dst)] |= immb
+        cpu._set_flags(cpu.registers[Register(dst)])
+
+    @Operation(arg_def='rw')
+    def or_w(cpu: 'CPU', dst: int, immw: int):
+        """
+        or.w dst, IMM_WORD - bitwise OR register with immediate Word
+
+        dst |= IMM_WORD
+        """
+        cpu.registers[Register(dst)] |= immw
+        cpu._set_flags(cpu.registers[Register(dst)])
+
+    @Operation(arg_def='rr')
+    def or_r(cpu: 'CPU', dst: int, src: int):
+        """
+        or.r dst, src - bitwise OR registers
+
+        dst |= src
+        """
+        cpu.registers[Register(dst)] |= cpu.registers[Register(src)]
+        cpu._set_flags(cpu.registers[Register(dst)])
+
+    @Operation(arg_def='rb')
     def shr_b(cpu: 'CPU', dst: int, immb: int):
         """
         shr.b dst, IMM_BYTE - logical SHift Right by Byte bits
@@ -498,6 +528,16 @@ class Operations:
         dst >>= IMM_BYTE
         """
         cpu.registers[Register(dst)] >>= immb
+        cpu._set_flags(cpu.registers[Register(dst)])
+
+    @Operation(arg_def='rb')
+    def shl_b(cpu: 'CPU', dst: int, immb: int):
+        """
+        shl.b dst, IMM_BYTE - logical SHift Left by Byte bits
+
+        dst <<= IMM_BYTE
+        """
+        cpu.registers[Register(dst)] <<= immb
         cpu._set_flags(cpu.registers[Register(dst)])
 
     @Operation(arg_def='rw')
