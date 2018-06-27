@@ -61,6 +61,10 @@ parser.add_argument('-A', '--addr-alignment',
                     type=int,
                     default=None,
                     help='Address memory alignment. By default, equal to address size.')
+parser.add_argument('-H', '--halt-after-instructions',
+                    type=int,
+                    default=None,
+                    help='Halts VM after executing specific number of instructions.')
 
 args = parser.parse_args()
 
@@ -95,6 +99,7 @@ try:
     cpu = CPU()
     cpu.execute(program=MEMORY_BLOCKS['program'],
                 ram=MEMORY_BLOCKS['ram'],
-                stack=MEMORY_BLOCKS['stack'])
+                stack=MEMORY_BLOCKS['stack'],
+                halt_after_instructions=args.halt_after_instructions)
 finally:
     logging.debug(cpu)

@@ -1,7 +1,7 @@
 import enum
 import logging
 import time
-from typing import List, Any, NamedTuple, Callable
+from typing import List, Any, NamedTuple, Callable, Optional
 import sys
 
 from evil.endianness import Endianness, bytes_from_value, value_from_bytes
@@ -649,7 +649,8 @@ class CPU:
     def execute(self,
                 program: Memory,
                 ram: Memory,
-                stack: Memory):
+                stack: Memory,
+                halt_after_instructions: Optional[int]):
         self.registers.IP = 0
         self.registers.SP = len(ram)
         self.registers.RP = len(stack)
@@ -664,7 +665,8 @@ class CPU:
             instructions_executed = 0
             start_time = time.time()
 
-            while True:
+            while (halt_after_instructions is None
+                   or instructions_executed < halt_after_instructions):
                 try:
                     instructions_executed += 1
                     idx = self.registers.IP
