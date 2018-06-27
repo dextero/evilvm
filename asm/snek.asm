@@ -1,6 +1,9 @@
 WIDTH = 80
 HEIGHT = 24
 
+SNAKE_INIT_X = WIDTH / 2
+SNAKE_INIT_Y = HEIGHT / 2
+
 MAX_X = WIDTH - 1
 MAX_Y = HEIGHT - 1
 INNER_WIDTH = WIDTH - 2
@@ -15,7 +18,7 @@ NONE  = 0b000
 RIGHT = 0b001
 UP    = 0b010
 LEFT  = 0b011
-DORN  = 0b100
+DOWN  = 0b100
 
 FROM_SHIFT = 0
 FROM       = 0b111 << FROM_SHIFT
@@ -43,8 +46,15 @@ CURR_DIRECTION = MAP_END + 4
 
 start:
     call reset
-    call draw_board
-    ;call draw_snake
+
+    movb.i2r c, 10
+frame:
+    push c
+     call draw_board
+     call snake_update
+    pop c
+    loop frame
+
     halt
 
 
@@ -91,7 +101,7 @@ reset_middle_next:
     movb.i2r c, WIDTH
     call memset
 
-    movw.i2r a, (HEIGHT / 2 * WIDTH) + (WIDTH / 2)
+    movw.i2r a, (SNAKE_INIT_Y * WIDTH) + SNAKE_INIT_X
     movb.i2r b, FROM_LEFT | TO_NONE
     stb.r a, b
 
@@ -102,6 +112,14 @@ reset_middle_next:
     sub.b a, 1
     movb.i2r b, FROM_NONE | TO_RIGHT
     stb.r a, b
+
+    movb.i2r a, SNAKE_INIT_X
+    movb.r2m SNAKE_HEAD_X, a
+    movb.i2r a, SNAKE_INIT_Y
+    movb.r2m SNAKE_HEAD_Y, a
+
+    movb.i2r a, RIGHT
+    movb.r2m CURR_DIRECTION, a
 
     ret
 
@@ -138,75 +156,120 @@ draw_board_char:
     ret
 
 
-advance_head:
+invert_direction:
+    sub.b a, 1
+    add.w a, inverted_directions
+    lpb.r a, a
     ret
+
+inverted_directions:
+    db LEFT, DOWN, RIGHT, UP
 
 
 offset_from_direction:
     ; TODO: check for 1 <= a <= 4
     sub.b a, 1
-    add.b offset_by_direction
-    ldb.r a, a
+    add.w a, offset_by_direction
+    lpb.r a, a
     ret
 
 offset_by_direction:
     db 1, -WIDTH, -1, WIDTH
 
 
+xy_from_direction:
+    ; TODO: check for 1 <= a <= 4
+    sub.b a, 1
+    add.w a, y_delta_by_direction
+    lpb.r b, a
+    add.w a, x_delta_by_direction - y_delta_by_direction
+    lpb.r a, a
+    ret
+
+x_delta_by_direction:
+    db 1, 0, -1, 0
+
+y_delta_by_direction:
+    db 0, -1, 0, 1
+
+
 snake_update:
     ; c = snake_head_idx
-    movw.i2r a, SNAKE_HEAD_X
-    ldb.r b, a
-    movw.i2r a, SNAKE_HEAD_Y
-    ldb.r c, a
+    movb.m2r b, SNAKE_HEAD_X
+    movb.m2r c, SNAKE_HEAD_Y
 
     mul.b c, WIDTH
     add.r c, b
 
-    ; a = map[snake_head_idx]
-    ldb.r a, c
-
     ; TODO: check for wall
     ; update head
-    and.b a, TO
-    shr.b a, TO_SHIFT
     push c
+     ; update old head
+     ; TODO: assert TO == NONE?
+     ldb.r b, c
+     movb.m2r a, CURR_DIRECTION
+     shl.b a, TO_SHIFT
+     or.r a, b
+     stb.r c, a
+
+     ; c = new HEAD offset
+     movb.m2r a, CURR_DIRECTION
      call offset_from_direction
      add.r c, a
+
+     ; set FROM on new head pos
      movb.m2r a, CURR_DIRECTION
+     call invert_direction
+     shl.b a, FROM_SHIFT
      stb.r c, a
+
+     ; update HEAD pos
+     movb.m2r a, CURR_DIRECTION
+     call xy_from_direction
+
+     movb.m2r c, SNAKE_HEAD_X
+     add.r a, c
+     movb.r2m SNAKE_HEAD_X, a
+
+     movb.m2r c, SNAKE_HEAD_Y
+     add.r b, c
+     movb.r2m SNAKE_HEAD_Y, b
     pop c
 
-    ; a = a.from
 snake_update_next:
+    ; a = map[curr_idx]
+    ldb.r a, c
+
+    ; a = a.from
+    and.b a, FROM
+    shr.b a, FROM_SHIFT
+    ; no 'from' direction, i.e. we're at the end
+    ; we need to store NONE at current and clear FROM in previous
+    je snake_update_end
+
     push c
+     ; c += offset_from_direction(a)
+     call offset_from_direction
+     add.r c, a
+
      ; a = map[curr_idx]
      ldb.r a, c
-     ; TODO: check for wall?
-     ; cmp.b a, NONE - NONE == 0, redundant
-     je snake_update_end
 
+     ; a = a.from
      and.b a, FROM
      shr.b a, FROM_SHIFT
-     ; no 'from' direction, i.e. we're at the end
-     ; we need to store NONE at current and clear FROM in previous
      je snake_update_end
     ; discard previous offset
     pop b
-
-    ; c += offset_from_direction(a)
-    call offset_from_direction
-    add.r c, a
-
     jmp snake_update_next
 
 snake_update_end:
-    ; clear current, i.e. last segment
-    movb.i2r a, NONE
-    stb.r c, a
+     ; clear current, i.e. last segment
+     movb.i2r a, NONE
+     stb.r c, a
     ; get previous offset, clear FROM field
     pop c
-    ldb.r a
+    ldb.r a, c
     and.b a, ~FROM
     stb.r c, a
 
