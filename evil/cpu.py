@@ -8,6 +8,7 @@ from evil.endianness import Endianness, bytes_from_value, value_from_bytes
 from evil.memory import Memory, DataType
 from evil.gpu import GPU
 from evil.fault import Fault
+from evil.utils import make_bytes_dump
 
 class Register(enum.Enum):
     """ CPU register """
@@ -612,7 +613,27 @@ class Operations:
     @Operation()
     def dbg(cpu: 'CPU'):
         """ dbg - prints current state of the VM """
-        print(cpu)
+        print(cpu, file=sys.stderr)
+
+    @Operation('r')
+    def dbg_reg(cpu: 'CPU', reg: int):
+        """ dbg.reg - prints current state of the VM register """
+        print('%08x: %s = %d (%x)' % (cpu.registers.IP, Register(reg).name,
+                                      cpu.registers[Register(reg)],
+                                      cpu.registers[Register(reg)]),
+              file=sys.stderr)
+
+    @Operation()
+    def dbg_regs(cpu: 'CPU'):
+        """ dbg.reg reg - prints current state of the VM register """
+        print(cpu.registers, file=sys.stderr)
+
+    @Operation('aa')
+    def dbg_ram(cpu: 'CPU', addr: int, size: int):
+        """ dbg.mem address, size_bytes - dump RAM range as hex """
+        print(make_bytes_dump(cpu.ram[addr:addr+size], cpu.ram.char_bit,
+                              alignment=4, address_base=addr),
+              file=sys.stderr)
 
 
 class InvalidOpcodeFault(Fault):

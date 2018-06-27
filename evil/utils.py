@@ -23,7 +23,8 @@ def group(seq: Sequence[T],
 def make_bytes_dump(data: List[int],
                     char_bit: int,
                     alignment: int,
-                    line_length: int = 80):
+                    line_length: int = 80,
+                    address_base: int = 0):
     """
     Converts DATA to a human-readable, hexdump-like string.
     * Each DATA element is printed in hex form, zero-padded to the maximum text
@@ -56,7 +57,7 @@ def make_bytes_dump(data: List[int],
     lines = ('  '.join(' '.join((byte_fmt % b) for b in w) for w in wg) for wg in line_groups)
     printable_lines = (' '.join(''.join(to_printable(b) for b in w) for w in wg) for wg in line_groups)
 
-    lines_with_offsets = ('%08x  %s  %s' % (idx * words_per_line * alignment, line, printable)
+    lines_with_offsets = ('%08x  %s  %s' % (address_base + idx * words_per_line * alignment, line, printable)
                           for idx, (line, printable) in enumerate(zip(lines, printable_lines)))
     return '\n'.join(lines_with_offsets)
 
