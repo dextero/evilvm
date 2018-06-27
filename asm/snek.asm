@@ -47,15 +47,26 @@ CURR_DIRECTION = MAP_END + 4
 start:
     call reset
 
+main_loop:
     movb.i2r c, 10
-frame:
+go_once:
     push c
      call draw_board
      call snake_update
     pop c
-    loop frame
+    loop go_once
 
-    halt
+    movb.m2r a, CURR_DIRECTION
+    cmp.b a, DOWN
+    je overflow
+    add.b a, 1
+    jmp change_direction
+overflow:
+    movb.i2r a, RIGHT
+change_direction:
+    movb.r2m CURR_DIRECTION, a
+
+    jmp main_loop
 
 
 ; IN:
