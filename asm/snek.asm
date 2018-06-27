@@ -136,11 +136,11 @@ reset_middle_next:
 
 
 draw_board_char_table:
-    db " <^>v   "
+    db " <v>^   "
     db "> \-/   "
-    db "v\ /|   "
+    db "^\ /|   "
     db "<-/ \   "
-    db "^/|\    "
+    db "v/|\    "
     db "        "
     db "        "
     db "        "
