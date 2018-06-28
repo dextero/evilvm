@@ -9,6 +9,7 @@ import argparse
 from evil.cpu import CPU
 from evil.memory import Memory, StrictlyAlignedMemory, DataType
 from evil.assembler import Assembler
+from evil.input import Input
 
 logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
@@ -96,10 +97,12 @@ for mapping in args.map_memory:
     MEMORY_BLOCKS[dst] = MEMORY_BLOCKS[src]
 
 try:
-    cpu = CPU()
-    cpu.execute(program=MEMORY_BLOCKS['program'],
-                ram=MEMORY_BLOCKS['ram'],
-                stack=MEMORY_BLOCKS['stack'],
-                halt_after_instructions=args.halt_after_instructions)
+    with Input() as input:
+        cpu = CPU()
+        cpu.execute(program=MEMORY_BLOCKS['program'],
+                    ram=MEMORY_BLOCKS['ram'],
+                    stack=MEMORY_BLOCKS['stack'],
+                    input=input,
+                    halt_after_instructions=args.halt_after_instructions)
 finally:
     logging.debug(cpu)

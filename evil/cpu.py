@@ -9,6 +9,7 @@ from evil.memory import Memory, DataType
 from evil.gpu import GPU
 from evil.fault import Fault
 from evil.utils import make_bytes_dump
+from evil.input import Input
 
 class Register(enum.Enum):
     """ CPU register """
@@ -650,6 +651,7 @@ class CPU:
         self.program = None
         self.ram = None
         self.call_stack = None
+        self.input = None
 
     def _set_flags(self, value: int):
         self.registers.F = (Flag.Zero & (value == 0)
@@ -671,6 +673,7 @@ class CPU:
                 program: Memory,
                 ram: Memory,
                 stack: Memory,
+                input: Input,
                 halt_after_instructions: Optional[int]):
         self.registers.IP = 0
         self.registers.SP = len(ram)
@@ -679,6 +682,7 @@ class CPU:
         self.program = program
         self.ram = ram
         self.call_stack = stack
+        self.input = input
 
         self.gpu = GPU(width=80, height=24)
 
