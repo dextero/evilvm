@@ -456,7 +456,7 @@ class Operations:
         """
         mul.b dst, IMM_BYTE - MULtiply Byte, immediate
 
-        dst -= IMM_BYTE
+        dst *= IMM_BYTE
         """
         cpu.registers[Register(reg)] *= immb
         cpu._set_flags(cpu.registers[Register(reg)])
@@ -466,7 +466,7 @@ class Operations:
         """
         mul.b dst, IMM_WORD - MULtiply Word, immediate
 
-        dst -= IMM_WORD
+        dst *= IMM_WORD
         """
         cpu.registers[Register(reg)] *= immw
         cpu._set_flags(cpu.registers[Register(reg)])
@@ -476,7 +476,7 @@ class Operations:
         """
         mul.r dst, src - MULtiply Register
 
-        dst -= src
+        dst *= src
         """
         cpu.registers[Register(dst)] *= cpu.registers[Register(src)]
         cpu._set_flags(cpu.registers[Register(dst)])
