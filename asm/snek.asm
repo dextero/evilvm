@@ -56,32 +56,33 @@ main_loop:
 
 
 handle_input:
-    in
     ; -1 = EOF - nothing to read
+    in
     jb handle_input_ret
     ; escape?
     cmp.b a, 27
-    jne handle_input_ret
+    jne handle_input
 
     in
+    jb handle_input_ret
+
     cmp.b a, '['
-    jne handle_input_ret
+    jne handle_input
 
     in
-    ; 65 = UP; 66 = DOWN; 67 = RIGHT; 68 = LEFT
-    sub.b a, 65
-    cmp.b a, 5
-    ja handle_input_ret
-    cmp.b a, 3
-    je handle_input_ret
+    jb handle_input_ret
 
+    ; 'A' = 65 = UP; 66 = DOWN; 67 = RIGHT; 68 = LEFT
+    sub.b a, 'A'
+    jb handle_input
+    cmp.b a, 3
+    ja handle_input
+
+    add.w a, handle_input_arrows
     lpb.r b, a
     movb.r2m CURR_DIRECTION, b
 
 handle_input_ret:
-    ; handle all input until -1 = EOF
-    cmp.b a, 0
-    jb handle_input
     ret
 
 handle_input_arrows:
