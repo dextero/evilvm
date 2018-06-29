@@ -1,6 +1,7 @@
 import enum
 import logging
 import time
+import random
 from typing import List, Any, NamedTuple, Callable, Optional
 import sys
 
@@ -623,6 +624,22 @@ class Operations:
         cpu.registers.C -= 1
         if cpu.registers.C > 0:
             cpu.registers.IP = addr
+
+    @Operation()
+    def rand(cpu: 'CPU'):
+        """
+        rand - put a random WORD in A
+
+        A = random()
+        """
+        num_bytes = DataType.calcsize('w')
+        value = 0
+        for _ in range(num_bytes):
+            value *= 2**cpu.ram.char_bit
+            value += random.randint(0, 2**cpu.ram.char_bit)
+
+        cpu.registers.A = value
+        cpu._set_flags(cpu.registers.A)
 
     @Operation()
     def halt(cpu: 'CPU'):
