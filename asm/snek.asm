@@ -48,25 +48,44 @@ start:
     call reset
 
 main_loop:
-    movb.i2r c, 10
-go_once:
-    push c
-     call draw_board
-     call snake_update
-    pop c
-    loop go_once
-
-    movb.m2r a, CURR_DIRECTION
-    cmp.b a, DOWN
-    je overflow
-    add.b a, 1
-    jmp change_direction
-overflow:
-    movb.i2r a, RIGHT
-change_direction:
-    movb.r2m CURR_DIRECTION, a
+    call handle_input
+    call draw_board
+    call snake_update
 
     jmp main_loop
+
+
+handle_input:
+    in
+    ; -1 = EOF - nothing to read
+    jb handle_input_ret
+    ; escape?
+    cmp.b a, 27
+    jne handle_input_ret
+
+    in
+    cmp.b a, '['
+    jne handle_input_ret
+
+    in
+    ; 65 = UP; 66 = DOWN; 67 = RIGHT; 68 = LEFT
+    sub.b a, 65
+    cmp.b a, 5
+    ja handle_input_ret
+    cmp.b a, 3
+    je handle_input_ret
+
+    lpb.r b, a
+    movb.r2m CURR_DIRECTION, b
+
+handle_input_ret:
+    ; handle all input until -1 = EOF
+    cmp.b a, 0
+    jb handle_input
+    ret
+
+handle_input_arrows:
+    db UP, DOWN, RIGHT, LEFT
 
 
 ; IN:
