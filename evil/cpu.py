@@ -120,7 +120,7 @@ class Operation:
 
     def __call__(self, wrapped: Callable):
         self.operation = wrapped
-        self.mnemonic = wrapped.__name__.replace('_', '.')
+        self.mnemonic = wrapped.__name__.lstrip('_').replace('_', '.')
         return self
 
 class HaltRequested(Exception):
@@ -301,6 +301,19 @@ class Operations:
         out - print character to GPU
         """
         cpu.gpu.put(cpu.registers.A)
+
+    @Operation()
+    def _in(cpu: 'CPU'):
+        """
+        in PORT - check key press state
+        """
+        char = cpu.input.get_char()
+        if char is None:
+            char = -1
+        else:
+            logging.info('in: %d' % char)
+        cpu.registers.A = char
+        cpu._set_flags(cpu.registers.A)
 
     @Operation(arg_def='rr')
     def seek(cpu: 'CPU', x_reg: int, y_reg: int):
