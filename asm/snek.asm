@@ -12,8 +12,6 @@ INNER_HEIGHT = HEIGHT - 2
 MAP = 0
 MAP_END = WIDTH * HEIGHT
 
-WALL = 0b1_000_000
-
 NONE  = 0b000
 RIGHT = 0b001
 UP    = 0b010
@@ -36,6 +34,9 @@ TO_UP    = UP    << TO_SHIFT
 TO_LEFT  = LEFT  << TO_SHIFT
 TO_DOWN  = DOWN  << TO_SHIFT
 
+WALL = 0b1_000_000
+FRUIT = FROM | TO
+
 APPLE_X = MAP_END + 0
 APPLE_Y = MAP_END + 1
 
@@ -43,6 +44,7 @@ SNAKE_HEAD_X = MAP_END + 2
 SNAKE_HEAD_Y = MAP_END + 3
 
 CURR_DIRECTION = MAP_END + 4
+FRUIT_COLLISION = MAP_END + 5
 
 start:
     call reset
@@ -144,6 +146,10 @@ reset_middle_next:
     movb.i2r b, FROM_NONE | TO_RIGHT
     stb.r a, b
 
+    sub.b a, 10
+    movb.i2r b, FRUIT
+    stb.r a, b
+
     movb.i2r a, SNAKE_INIT_X
     movb.r2m SNAKE_HEAD_X, a
     movb.i2r a, SNAKE_INIT_Y
@@ -163,7 +169,7 @@ draw_board_char_table:
     db "v/|\    "
     db "        "
     db "        "
-    db "        "
+    db "       @"
     db "X"
 
 
@@ -250,9 +256,23 @@ snake_update:
 
      ldb.r a, c
      je snake_no_collision
-     halt
-snake_no_collision:
+     cmp.b a, FRUIT
+     jne snake_fatal_collision
 
+     ; fruit: keep tail
+     movb.i2r b, 1
+     movb.r2m FRUIT_COLLISION, b
+     jmp snake_collision_handled
+
+snake_fatal_collision:
+     halt
+
+snake_no_collision:
+     ; no fruit: clear tail field
+     movb.i2r b, 0
+     movb.r2m FRUIT_COLLISION, b
+
+snake_collision_handled:
      ; set FROM on new head pos
      movb.m2r a, CURR_DIRECTION
      call invert_direction
@@ -300,15 +320,23 @@ snake_update_next:
     jmp snake_update_next
 
 snake_update_end:
+     movb.m2r a, FRUIT_COLLISION
+     jne snake_update_no_tail_clear
+
      ; clear current, i.e. last segment
      movb.i2r a, NONE
      stb.r c, a
-    ; get previous offset, clear FROM field
+    ; get previous offset
     pop c
+
     ldb.r a, c
     and.b a, ~FROM
     stb.r c, a
 
+    ret
+
+snake_update_no_tail_clear:
+    pop c
     ret
 
 
