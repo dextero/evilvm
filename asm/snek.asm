@@ -146,9 +146,7 @@ reset_middle_next:
     movb.i2r b, FROM_NONE | TO_RIGHT
     stb.r a, b
 
-    sub.b a, 10
-    movb.i2r b, FRUIT
-    stb.r a, b
+    call put_random_fruit
 
     movb.i2r a, SNAKE_INIT_X
     movb.r2m SNAKE_HEAD_X, a
@@ -321,7 +319,7 @@ snake_update_next:
 
 snake_update_end:
      movb.m2r a, FRUIT_COLLISION
-     jne snake_update_no_tail_clear
+     jne snake_update_fruit_eaten
 
      ; clear current, i.e. last segment
      movb.i2r a, NONE
@@ -335,8 +333,21 @@ snake_update_end:
 
     ret
 
-snake_update_no_tail_clear:
+snake_update_fruit_eaten:
     pop c
+    call put_random_fruit
+    ret
+
+
+put_random_fruit:
+    rand
+    mod.w a, WIDTH * HEIGHT
+    ldb.r b, a
+    ; field not empty, try again
+    jne put_random_fruit
+
+    movb.i2r b, FRUIT
+    stb.r a, b
     ret
 
 
