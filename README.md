@@ -6,6 +6,13 @@ A simple generic virtual machine for a made-up architecture.
 This is *very much* work-in-progress. Expect stuff to break in unexpected ways.
 
 
+Requirements
+============
+
+* Python 3.6+
+* Linux OS
+
+
 Usage
 =====
 
