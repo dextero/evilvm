@@ -482,6 +482,36 @@ class Operations:
         cpu._set_flags(cpu.registers[Register(dst)])
 
     @Operation(arg_def='rb')
+    def mod_b(cpu: 'CPU', reg: int, immb: int):
+        """
+        mod.b dst, IMM_BYTE - division MODulus Byte, immediate
+
+        dst %= IMM_BYTE
+        """
+        cpu.registers[Register(reg)] %= immb
+        cpu._set_flags(cpu.registers[Register(reg)])
+
+    @Operation(arg_def='rw')
+    def mod_w(cpu: 'CPU', reg: int, immw: int):
+        """
+        mod.b dst, IMM_WORD - division MODulus Word, immediate
+
+        dst %= IMM_WORD
+        """
+        cpu.registers[Register(reg)] %= immw
+        cpu._set_flags(cpu.registers[Register(reg)])
+
+    @Operation(arg_def='rr')
+    def mod_r(cpu: 'CPU', dst: int, src: int):
+        """
+        mod.r dst, src - division MODulus Register
+
+        dst %= src
+        """
+        cpu.registers[Register(dst)] %= cpu.registers[Register(src)]
+        cpu._set_flags(cpu.registers[Register(dst)])
+
+    @Operation(arg_def='rb')
     def and_b(cpu: 'CPU', dst: int, immb: int):
         """
         and.b dst, IMM_BYTE - bitwise AND register with immediate Byte
