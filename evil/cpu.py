@@ -138,6 +138,7 @@ class Operations:
         dst = src
         """
         cpu.registers[Register(dst_reg)] = cpu.registers[Register(src_reg)]
+        cpu._set_flags(cpu.registers[Register(dst_reg)])
 
     @Operation(arg_def='rb')
     def movb_i2r(cpu: 'CPU', reg: int, immb: int):
@@ -147,6 +148,7 @@ class Operations:
         dst = IMM_BYTE
         """
         cpu.registers[Register(reg)] = immb
+        cpu._set_flags(cpu.registers[Register(reg)])
 
     @Operation(arg_def='ra')
     def movb_m2r(cpu: 'CPU', reg: int, addr: int):
@@ -156,6 +158,7 @@ class Operations:
         dst = byte ptr $RAM[IMM_ADDR]
         """
         cpu.registers[Register(reg)] = cpu.ram.get_fmt('b', addr)
+        cpu._set_flags(cpu.registers[Register(reg)])
 
     @Operation(arg_def='ar')
     def movb_r2m(cpu: 'CPU', addr: int, reg: int):
@@ -174,6 +177,7 @@ class Operations:
         dst = IMM_WORD
         """
         cpu.registers[Register(reg)] = immw
+        cpu._set_flags(cpu.registers[Register(reg)])
 
     @Operation(arg_def='ra')
     def movw_m2r(cpu: 'CPU', reg: int, addr: int):
@@ -183,6 +187,7 @@ class Operations:
         dst = word ptr $RAM[IMM_ADDR]
         """
         cpu.registers[Register(reg)] = cpu.ram.get_fmt('w', addr)
+        cpu._set_flags(cpu.registers[Register(reg)])
 
     @Operation(arg_def='ar')
     def movw_r2m(cpu: 'CPU', addr: int, reg: int):
