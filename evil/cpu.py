@@ -667,8 +667,8 @@ class CPU:
         self.input = None
 
     def _set_flags(self, value: int):
-        self.registers.F = (Flag.Zero & (value == 0)
-                            | Flag.Greater & (value > 0))
+        self.registers.F = ((Flag.Zero if (value == 0) else 0)
+                            | (Flag.Greater if (value > 0) else 0))
 
     def _log_instruction(self,
                          op: Operation,
