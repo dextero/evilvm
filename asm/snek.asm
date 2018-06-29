@@ -297,9 +297,7 @@ snake_update_next:
     ; a = a.from
     and.b a, FROM
     shr.b a, FROM_SHIFT
-    ; no 'from' direction, i.e. we're at the end
-    ; we need to store NONE at current and clear FROM in previous
-    je snake_update_end
+    ; NOTE: assumes at lease 2-segment snake
 
     push c
      ; c += offset_from_direction(a)
@@ -312,6 +310,8 @@ snake_update_next:
      ; a = a.from
      and.b a, FROM
      shr.b a, FROM_SHIFT
+     ; no 'from' direction, i.e. we're at the end
+     ; we need to store NONE at current and clear FROM in previous
      je snake_update_end
     ; discard previous offset
     pop b
