@@ -248,6 +248,11 @@ snake_update:
      call offset_from_direction
      add.r c, a
 
+     ldb.r a, c
+     je snake_no_collision
+     halt
+snake_no_collision:
+
      ; set FROM on new head pos
      movb.m2r a, CURR_DIRECTION
      call invert_direction
