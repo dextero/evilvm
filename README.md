@@ -23,8 +23,9 @@ Usage
     LOGLEVEL=DEBUG python3 -m evil asm/hello.asm
 
     # run a crude snake-like game in the terminal
-    # NOTE: requires char_bit >= 8, word_size >= 2, addr_size >= 2
+    # NOTE: requires char_bit >= 8, word_size * char_bit >= 12, addr_size * char_bit >= 12
     python3 -m evil asm/snek.asm --ram-size 1024
+    python3 -m evil asm/snek.asm --ram-size 1024 --char-bit 12 --word-size 1 --addr-size 1
 
     # make the VM use some more familiar settings
     python3 -m evil asm/hello.asm --char-bit 8 --word-size 4 --addr-size 4 --map-memory ram=program stack=program
